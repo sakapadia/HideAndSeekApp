@@ -1,4 +1,6 @@
 using Azure.Data.Tables;
+using Azure;
+using System.Text.Json;
 
 namespace HideandSeek.Server.Models;
 
@@ -94,4 +96,177 @@ public class NoiseReport : ITableEntity
     /// Provides context for location when coordinates aren't sufficient.
     /// </summary>
     public string Address { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Username of the user who submitted this report.
+    /// Used for tracking user contributions and profile history.
+    /// </summary>
+    public string SubmittedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Points awarded for this report.
+    /// Users earn points for each report they submit.
+    /// </summary>
+    public int PointsAwarded { get; set; } = 10;
+
+    // ===== NEW FIELDS FROM REPORTING FLOW =====
+
+    /// <summary>
+    /// Array of selected noise categories from the frontend form.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// </summary>
+    public string Categories { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Custom search text entered by the user.
+    /// Used for AI-powered category matching.
+    /// </summary>
+    public string SearchValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Blast radius when exact location is unknown.
+    /// Values: "Small", "Medium", "Large".
+    /// </summary>
+    public string BlastRadius { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Time option selected by the user.
+    /// Values: "NOW", "Morning", "Afternoon", "Evening", "Night".
+    /// </summary>
+    public string TimeOption { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Custom date selected by the user (if not "NOW").
+    /// Stored as ISO 8601 string.
+    /// </summary>
+    public string CustomDate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Array of custom time slots selected by the user.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// </summary>
+    public string CustomSlots { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether this is a recurring noise issue.
+    /// </summary>
+    public bool IsRecurring { get; set; } = false;
+
+    /// <summary>
+    /// Recurrence configuration settings.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// </summary>
+    public string RecurrenceConfig { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Array of media file references attached to the report.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// </summary>
+    public string MediaFiles { get; set; } = string.Empty;
+
+    // ===== HELPER METHODS =====
+
+    /// <summary>
+    /// Gets the categories as a list of strings.
+    /// </summary>
+    public List<string> GetCategoriesList()
+    {
+        if (string.IsNullOrEmpty(Categories))
+            return new List<string>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(Categories) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the categories from a list of strings.
+    /// </summary>
+    public void SetCategoriesList(List<string> categories)
+    {
+        Categories = JsonSerializer.Serialize(categories);
+    }
+
+    /// <summary>
+    /// Gets the custom slots as a list of strings.
+    /// </summary>
+    public List<string> GetCustomSlotsList()
+    {
+        if (string.IsNullOrEmpty(CustomSlots))
+            return new List<string>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(CustomSlots) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the custom slots from a list of strings.
+    /// </summary>
+    public void SetCustomSlotsList(List<string> slots)
+    {
+        CustomSlots = JsonSerializer.Serialize(slots);
+    }
+
+    /// <summary>
+    /// Gets the recurrence configuration as a dictionary.
+    /// </summary>
+    public Dictionary<string, object> GetRecurrenceConfig()
+    {
+        if (string.IsNullOrEmpty(RecurrenceConfig))
+            return new Dictionary<string, object>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(RecurrenceConfig) ?? new Dictionary<string, object>();
+        }
+        catch
+        {
+            return new Dictionary<string, object>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the recurrence configuration from a dictionary.
+    /// </summary>
+    public void SetRecurrenceConfig(Dictionary<string, object> config)
+    {
+        RecurrenceConfig = JsonSerializer.Serialize(config);
+    }
+
+    /// <summary>
+    /// Gets the media files as a list of strings.
+    /// </summary>
+    public List<string> GetMediaFilesList()
+    {
+        if (string.IsNullOrEmpty(MediaFiles))
+            return new List<string>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(MediaFiles) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the media files from a list of strings.
+    /// </summary>
+    public void SetMediaFilesList(List<string> files)
+    {
+        MediaFiles = JsonSerializer.Serialize(files);
+    }
 } 

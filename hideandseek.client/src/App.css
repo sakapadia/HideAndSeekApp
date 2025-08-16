@@ -5,6 +5,15 @@
   box-sizing: border-box;
 }
 
+/* CSS Custom Properties for consistent layout */
+:root {
+  --main-menu-width: 25vw; /* Use viewport-based width for consistency */
+  --main-menu-width-max: 320px; /* Maximum width */
+  --content-width: calc(100vw - var(--main-menu-width));
+  --screen-height: 100vh;
+  --content-height: calc(var(--screen-height) - 4rem);
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -80,31 +89,55 @@ body {
   opacity: 0.9;
 }
 
-/* Map container */
+/* Map container - full-bleed */
 .map-container {
-  flex: 1;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
+  width: 100vw;
+  height: 100vh;
+  padding-left: var(--main-menu-width, 240px); /* Dynamic width based on CSS custom property */
+}
+
+/* Full-screen map view (no left padding) */
+.map-container.fullscreen {
+  padding-left: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* Ensure fullscreen map contents also take full viewport */
+.map-container.fullscreen .map {
+  width: 100vw !important;
+  height: 100vh !important;
+  min-width: 100vw !important;
+  min-height: 100vh !important;
 }
 
 .map {
-  flex: 1;
-  height: calc(100vh - 200px);
-  min-height: 500px;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0; /* allow flex child to grow without overflow clipping */
   cursor: crosshair;
 }
 
 /* Map controls */
 .map-controls {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+  position: fixed;
+  top: 80px;
+  left: 10px;
   background: white;
   border-radius: 12px;
   padding: 1rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   min-width: 200px;
-  z-index: 1000;
+  max-width: 220px;
+  z-index: 2500;
 }
 
 .report-button {
@@ -544,4 +577,73 @@ body {
   .api-key-info {
     padding: 1rem;
   }
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: white;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error Banner */
+.error-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f44336;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 90vw;
+}
+
+.error-banner p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.error-banner button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s;
+}
+
+.error-banner button:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

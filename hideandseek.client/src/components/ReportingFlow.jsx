@@ -33,7 +33,7 @@ const SCREENS = {
  * Main reporting flow component that manages the multi-step process.
  * Handles navigation between screens and maintains state for the entire flow.
  */
-export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false }) => {
+export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick }) => {
   // ===== STATE MANAGEMENT =====
   
   // Current screen and navigation
@@ -65,7 +65,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     noiseLevel: 5,
     
     // Where screen data
-    selectedLocation: null,
     selectedAddress: '',
     location: '',
     blastRadius: '',
@@ -197,11 +196,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   const handleLogout = () => {
+    if (onAppLogout) {
+      onAppLogout();
+      return;
+    }
     setIsLoggedIn(false);
     setIsGuest(false);
     setUserType(null);
     setUsername('');
-    setCurrentScreen(SCREENS.PRE_LOGIN);
+    setCurrentScreen(SCREENS.MAIN_MENU);
   };
 
   // ===== MAIN MENU HANDLERS =====
@@ -242,15 +245,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }));
   };
 
-  // ===== WHERE SCREEN HANDLERS =====
-  
-  const handleLocationChange = (location) => {
+  const handleDescriptionChange = (description) => {
     setReportData(prev => ({
       ...prev,
-      selectedLocation: location
+      description: description
     }));
   };
 
+  // ===== WHERE SCREEN HANDLERS =====
+  
   const handleAddressChange = (address) => {
     setReportData(prev => ({
       ...prev,
@@ -370,15 +373,94 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     console.log('Report confirmed:', reportData);
     
-    // For regular reports, skip payment and go directly to confirmation
-    if (userType !== 'organizer') {
-      setCurrentScreen(SCREENS.CONFIRMATION);
-    } else {
-      goToNext(); // Go to payment for organizers
+    try {
+      // Submit the report to the backend
+      await submitNoiseReport();
+      
+      // For regular reports, skip payment and go directly to confirmation
+      if (userType !== 'organizer') {
+        setCurrentScreen(SCREENS.CONFIRMATION);
+      } else {
+        goToNext(); // Go to payment for organizers
+      }
+    } catch (error) {
+      console.error('Failed to submit noise report:', error);
+      alert('Failed to submit noise report. Please try again.');
     }
+  };
+
+  const submitNoiseReport = async () => {
+    // Get the JWT token from localStorage or userInfo
+    const token = localStorage.getItem('jwtToken') || userInfo?.jwtToken;
+    
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    // Extract coordinates from address (coordinates will be generated server-side)
+    // For now, we'll use placeholder coordinates since the map is no longer available
+    const latitude = 0; // Will be generated server-side from address
+    const longitude = 0; // Will be generated server-side from address
+
+    // Prepare the report data for submission
+    const reportSubmission = {
+      // Location data
+      latitude: latitude,
+      longitude: longitude,
+      address: reportData.selectedAddress || reportData.location || '',
+      blastRadius: reportData.blastRadius || '',
+      
+      // Noise details
+      description: reportData.description || '',
+      noiseType: reportData.category || reportData.selectedCategories[0] || 'Other',
+      noiseLevel: reportData.noiseLevel || 5,
+      categories: reportData.selectedCategories || [],
+      searchValue: reportData.searchValue || '',
+      
+      // Timing information
+      timeOption: reportData.timeOption || 'NOW',
+      customDate: reportData.customDate || reportData.selectedDate || '',
+      customSlots: reportData.customSlots || [],
+      isRecurring: reportData.isRecurring || false,
+      recurrenceConfig: reportData.recurrenceConfig || {},
+      
+      // Media and contact
+      mediaFiles: reportData.mediaFiles || [],
+      reporterName: reportData.reporterName || '',
+      contactEmail: reportData.contactEmail || ''
+    };
+
+    // Validate required fields
+    if (!reportSubmission.address.trim()) {
+      throw new Error('Address is required. Please enter the location where the noise is occurring.');
+    }
+    
+    if (!reportSubmission.description.trim()) {
+      throw new Error('Description is required');
+    }
+
+    // Submit to the comprehensive endpoint
+    const response = await fetch('/api/noisereports/comprehensive', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(reportSubmission)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to submit report: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('Report submitted successfully:', result);
+    
+    return result;
   };
 
   const handleCancel = () => {
@@ -389,7 +471,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
-      selectedLocation: null,
       selectedAddress: '',
       location: '',
       blastRadius: '',
@@ -447,7 +528,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
-      selectedLocation: null,
       selectedAddress: '',
       location: '',
       blastRadius: '',
@@ -502,26 +582,26 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.WHAT:
         return (
           <WhatScreen
-            progress={20}
+            progress={10}
             selectedCategories={reportData.selectedCategories}
             onCategorySelect={handleCategorySelect}
             onSearchChange={handleSearchChange}
             onNoiseLevelChange={handleNoiseLevelChange}
+            onDescriptionChange={handleDescriptionChange}
             onNext={goToNext}
-            onBack={() => navigateTo(SCREENS.MAIN_MENU)}
+            onBack={goToPrevious}
             onCancel={handleCancel}
             searchValue={reportData.searchValue}
             noiseLevel={reportData.noiseLevel}
+            description={reportData.description}
           />
         );
       case SCREENS.WHERE:
         return (
           <WhereScreen
             progress={30}
-            selectedLocation={reportData.selectedLocation}
             selectedAddress={reportData.selectedAddress}
             blastRadius={reportData.blastRadius}
-            onLocationChange={handleLocationChange}
             onAddressChange={handleAddressChange}
             onBlastRadiusChange={handleBlastRadiusChange}
             onNext={goToNext}
@@ -630,6 +710,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
         <UserDisplay 
           username={username}
           isGuest={isGuest}
+          onProfileClick={onProfileClick}
         />
       )}
       

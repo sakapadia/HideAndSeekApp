@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
+using Microsoft.AspNetCore.Authorization; // Added for Authorize attribute
 
 namespace HideandSeek.Server.Controllers;
 
@@ -15,16 +16,19 @@ namespace HideandSeek.Server.Controllers;
 public class NoiseReportsController : ControllerBase
 {
     private readonly ITableStorageService _tableStorageService;
+    private readonly IUserService _userService;
     private readonly ILogger<NoiseReportsController> _logger;
 
     /// <summary>
     /// Initializes the controller with dependency injection.
     /// </summary>
     /// <param name="tableStorageService">Service for Azure Table Storage operations</param>
+    /// <param name="userService">Service for user account operations</param>
     /// <param name="logger">Logger for error tracking and debugging</param>
-    public NoiseReportsController(ITableStorageService tableStorageService, ILogger<NoiseReportsController> logger)
+    public NoiseReportsController(ITableStorageService tableStorageService, IUserService userService, ILogger<NoiseReportsController> logger)
     {
         _tableStorageService = tableStorageService;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -92,10 +96,13 @@ public class NoiseReportsController : ControllerBase
     /// - PartitionKey: ZIP code (determined from coordinates if not provided)
     /// - RowKey: Auto-generated timestamp + GUID for uniqueness
     /// - All other properties from the request body
+    /// - SubmittedBy: Username of the user who submitted the report (from JWT token)
+    /// - PointsAwarded: Points awarded for this report (default: 10)
     /// </summary>
     /// <param name="report">The noise report data from the frontend</param>
     /// <returns>The created noise report with generated identifiers</returns>
     [HttpPost]
+    [Authorize] // Require authentication
     public async Task<ActionResult<NoiseReport>> CreateNoiseReport([FromBody] NoiseReport report)
     {
         try
@@ -118,6 +125,29 @@ public class NoiseReportsController : ControllerBase
                 return BadRequest("Description is required");
             }
 
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized("User not authenticated");
+            }
+
+            // Set user information from JWT token
+            report.SubmittedBy = username;
+            report.PointsAwarded = 10; // Default points for each report
+            report.ReportDate = DateTime.UtcNow; // Set current timestamp
+
+            // Set default values for new fields if not provided
+            if (string.IsNullOrEmpty(report.Categories))
+            {
+                report.SetCategoriesList(new List<string> { report.NoiseType });
+            }
+            
+            if (string.IsNullOrEmpty(report.TimeOption))
+            {
+                report.TimeOption = "NOW";
+            }
+
             // Determine ZIP code from coordinates if not provided
             // This ensures proper partitioning in Azure Table Storage
             if (string.IsNullOrEmpty(report.PartitionKey))
@@ -129,6 +159,18 @@ public class NoiseReportsController : ControllerBase
             // Create the noise report in Azure Table Storage
             var createdReport = await _tableStorageService.CreateNoiseReportAsync(report);
             
+            // Award points to user
+            try
+            {
+                await _userService.AwardPointsAsync(username, report.PointsAwarded);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to award points to user {Username} for report {ReportId}", 
+                    username, createdReport.RowKey);
+                // Don't fail the report creation if points awarding fails
+            }
+            
             // Return 201 Created with the location of the new resource
             return CreatedAtAction(nameof(GetNoiseReports), new { id = createdReport.RowKey }, createdReport);
         }
@@ -137,6 +179,143 @@ public class NoiseReportsController : ControllerBase
             _logger.LogError(ex, "Error creating noise report at location: {Lat}, {Lon}", 
                 report?.Latitude, report?.Longitude);
             return StatusCode(500, "An error occurred while creating the noise report");
+        }
+    }
+
+    /// <summary>
+    /// POST /api/noisereports/comprehensive
+    /// 
+    /// Creates a comprehensive noise report from the multi-step reporting flow.
+    /// This endpoint handles all the detailed fields collected through the frontend form.
+    /// 
+    /// The report will be stored in Azure Table Storage with:
+    /// - PartitionKey: ZIP code (determined from coordinates if not provided)
+    /// - RowKey: Auto-generated timestamp + GUID for uniqueness
+    /// - All properties from the comprehensive reporting flow
+    /// - SubmittedBy: Username of the user who submitted the report (from JWT token)
+    /// - PointsAwarded: Points awarded for this report (default: 10)
+    /// </summary>
+    /// <param name="reportRequest">The comprehensive noise report data from the frontend</param>
+    /// <returns>The created noise report with generated identifiers</returns>
+    [HttpPost("comprehensive")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult<NoiseReport>> CreateComprehensiveNoiseReport([FromBody] ComprehensiveNoiseReportRequest reportRequest)
+    {
+        try
+        {
+            // Validate that the request contains data
+            if (reportRequest == null)
+            {
+                return BadRequest("Comprehensive noise report data is required");
+            }
+
+            // Validate required geographic coordinates
+            if (reportRequest.Latitude == 0 || reportRequest.Longitude == 0)
+            {
+                return BadRequest("Latitude and longitude are required");
+            }
+
+            // Validate required description
+            if (string.IsNullOrEmpty(reportRequest.Description))
+            {
+                return BadRequest("Description is required");
+            }
+
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized("User not authenticated");
+            }
+
+            // Create the NoiseReport entity from the request
+            var report = new NoiseReport
+            {
+                // Basic location and description
+                Latitude = reportRequest.Latitude,
+                Longitude = reportRequest.Longitude,
+                Description = reportRequest.Description,
+                Address = reportRequest.Address ?? string.Empty,
+                
+                // User information
+                SubmittedBy = username,
+                ReporterName = reportRequest.ReporterName ?? string.Empty,
+                ContactEmail = reportRequest.ContactEmail ?? string.Empty,
+                
+                // Noise details
+                NoiseType = reportRequest.NoiseType ?? "Other",
+                NoiseLevel = reportRequest.NoiseLevel,
+                
+                // New comprehensive fields
+                SearchValue = reportRequest.SearchValue ?? string.Empty,
+                BlastRadius = reportRequest.BlastRadius ?? string.Empty,
+                TimeOption = reportRequest.TimeOption ?? "NOW",
+                CustomDate = reportRequest.CustomDate ?? string.Empty,
+                IsRecurring = reportRequest.IsRecurring,
+                
+                // Set JSON fields using helper methods
+                ReportDate = DateTime.UtcNow,
+                PointsAwarded = 10
+            };
+
+            // Set categories
+            if (reportRequest.Categories != null && reportRequest.Categories.Count > 0)
+            {
+                report.SetCategoriesList(reportRequest.Categories);
+            }
+            else
+            {
+                report.SetCategoriesList(new List<string> { report.NoiseType });
+            }
+
+            // Set custom time slots
+            if (reportRequest.CustomSlots != null && reportRequest.CustomSlots.Count > 0)
+            {
+                report.SetCustomSlotsList(reportRequest.CustomSlots);
+            }
+
+            // Set recurrence configuration
+            if (reportRequest.RecurrenceConfig != null && reportRequest.RecurrenceConfig.Count > 0)
+            {
+                report.SetRecurrenceConfig(reportRequest.RecurrenceConfig);
+            }
+
+            // Set media files
+            if (reportRequest.MediaFiles != null && reportRequest.MediaFiles.Count > 0)
+            {
+                report.SetMediaFilesList(reportRequest.MediaFiles);
+            }
+
+            // Determine ZIP code from coordinates if not provided
+            if (string.IsNullOrEmpty(report.PartitionKey))
+            {
+                report.PartitionKey = await _tableStorageService.GetZipCodeFromCoordinatesAsync(
+                    report.Latitude, report.Longitude);
+            }
+
+            // Create the noise report in Azure Table Storage
+            var createdReport = await _tableStorageService.CreateNoiseReportAsync(report);
+            
+            // Award points to user
+            try
+            {
+                await _userService.AwardPointsAsync(username, report.PointsAwarded);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to award points to user {Username} for comprehensive report {ReportId}", 
+                    username, createdReport.RowKey);
+                // Don't fail the report creation if points awarding fails
+            }
+            
+            // Return 201 Created with the location of the new resource
+            return CreatedAtAction(nameof(GetNoiseReports), new { id = createdReport.RowKey }, createdReport);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating comprehensive noise report at location: {Lat}, {Lon}", 
+                reportRequest?.Latitude, reportRequest?.Longitude);
+            return StatusCode(500, "An error occurred while creating the comprehensive noise report");
         }
     }
 

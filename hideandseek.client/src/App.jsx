@@ -1,14 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ReportingFlow } from './components/ReportingFlow';
+import { UserProfile } from './components/UserProfile';
+import { OAuthLogin } from './components/OAuthLogin';
 import './App.css';
 import './components/ReportingFlow.css';
+import './components/UserProfile.css';
+import './components/OAuthLogin.css';
 import { UserDisplay } from './components/UIComponents';
 
 // ===== CONFIGURATION =====
-// Replace with your actual Google Maps API key
-// Get one from: https://console.cloud.google.com/
-// Required APIs: Maps JavaScript API, Geocoding API (optional)
-const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
+// Google Maps API key is read from Vite env: VITE_GOOGLE_MAPS_API_KEY
+// Create hideandseek.client/.env.local with: VITE_GOOGLE_MAPS_API_KEY=your_key_here
+// Docs: https://vitejs.dev/guide/env-and-mode.html
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
 
 /**
  * Main application component.
@@ -27,11 +31,181 @@ function App() {
   
   // User state that persists across modes
   const [userInfo, setUserInfo] = useState({ 
-    username: '', 
-    isGuest: false,
+    userId: '',
+    displayName: '',
+    email: '',
+    provider: '',
+    customUsername: '',
+    username: '',
     isLoggedIn: false,
-    userType: null
+    jwtToken: ''
   });
+
+  // Profile modal state
+  const [showProfile, setShowProfile] = useState(false);
+  const [forceAccountSelection, setForceAccountSelection] = useState(() => {
+    // Check localStorage for forceAccountSelection state on component mount
+    const stored = localStorage.getItem('hideandseek_force_account_selection');
+    return stored === 'true';
+  });
+
+  // Google Maps state
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [persistentMap, setPersistentMap] = useState(null);
+
+  // ===== OAuth Token Handling =====
+  useEffect(() => {
+    
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const provider = urlParams.get('provider');
+    const error = urlParams.get('error');
+
+    if (error) {
+      setError(`Authentication failed: ${error}`);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (token) {
+      // Validate the JWT token
+      validateToken(token);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Check for stored token
+      const storedToken = localStorage.getItem('hideandseek_token');
+      if (storedToken) {
+        validateToken(storedToken);
+      }
+    }
+  }, []);
+
+  const validateToken = async (token) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/auth/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token })
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        // Support both PascalCase and camelCase keys from the server
+        const userId = userData.UserId || userData.userId || '';
+        const displayName = userData.DisplayName || userData.displayName || '';
+        const email = userData.Email || userData.email || '';
+        const provider = userData.Provider || userData.provider || '';
+        const customUsername = userData.CustomUsername || userData.customUsername || '';
+        const computedUsername = customUsername || displayName || (email ? email.split('@')[0] : '');
+        setUserInfo({
+          userId,
+          displayName,
+          email,
+          provider,
+          customUsername,
+          username: computedUsername,
+          isLoggedIn: true,
+          jwtToken: token
+        });
+        localStorage.setItem('hideandseek_token', token);
+      } else {
+        const errorText = await response.text();
+        // Token is invalid, clear stored token
+        localStorage.removeItem('hideandseek_token');
+        setUserInfo({
+          userId: '',
+          displayName: '',
+          email: '',
+          provider: '',
+          customUsername: '',
+          username: '',
+          isLoggedIn: false,
+          jwtToken: ''
+        });
+      }
+    } catch (error) {
+      localStorage.removeItem('hideandseek_token');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===== GOOGLE MAPS INITIALIZATION =====
+  useEffect(() => {
+    const initializeMaps = async () => {
+      console.log('Initializing Google Maps...');
+      console.log('API Key configured:', GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY');
+      
+      if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
+        console.warn('Google Maps API key not configured. Please add your API key to use the map feature.');
+        return;
+      }
+
+      try {
+        console.log('Loading Google Maps API...');
+        const { Loader } = await import('@googlemaps/js-api-loader');
+        const loader = new Loader({
+          apiKey: GOOGLE_MAPS_API_KEY,
+          version: 'weekly',
+          libraries: ['places']
+        });
+
+        await loader.load();
+        console.log('Google Maps API loaded successfully');
+        setMapsLoaded(true);
+      } catch (error) {
+        console.error('Error loading Google Maps:', error);
+        setError('Failed to load Google Maps. Please check your API key and internet connection.');
+      }
+    };
+
+    initializeMaps();
+  }, []);
+
+  // Initialize persistent map when container becomes available
+  useEffect(() => {
+    if (mapsLoaded && !persistentMap && currentMode === 'mainMenu') {
+      const initializePersistentMap = () => {
+        const persistentContainer = document.getElementById('persistent-map-container');
+        if (persistentContainer && !persistentMap) {
+          console.log('Persistent map container found, initializing map...');
+          const persistentMapInstance = new google.maps.Map(persistentContainer, {
+            center: { lat: 40.7128, lng: -74.0060 }, // New York City
+            zoom: 10,
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            disableDefaultUI: true, // Hide default controls
+            zoomControl: false,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false,
+            styles: [
+              {
+                featureType: 'all',
+                elementType: 'labels.text.fill',
+                stylers: [{ color: '#667eea' }]
+              },
+              {
+                featureType: 'water',
+                elementType: 'geometry',
+                stylers: [{ color: '#bbdefb' }]
+              }
+            ]
+          });
+          setPersistentMap(persistentMapInstance);
+          console.log('Persistent map initialized successfully');
+        }
+      };
+
+      // Try to initialize after a short delay to ensure DOM is ready
+      setTimeout(initializePersistentMap, 100);
+    }
+  }, [mapsLoaded, persistentMap, currentMode]);
 
   // ===== MODE SWITCHING =====
   const switchToMapMode = () => {
@@ -42,23 +216,237 @@ function App() {
     setCurrentMode('mainMenu');
   };
 
-  // ===== INITIAL LOGIN CHECK =====
-  const isFirstTimeUser = !userInfo.isLoggedIn && !userInfo.isGuest;
+  // Center on Me function for persistent background map
+  const centerOnPersistentMap = () => {
+    console.log('Center on Me button clicked for persistent map');
+    
+    if (!persistentMap) {
+      console.error('Persistent map not initialized');
+      setError('Persistent map not initialized.');
+      return;
+    }
+    
+    if (!navigator.geolocation) {
+      console.error('Geolocation not supported');
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+    
+    console.log('Requesting geolocation...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('Geolocation success:', position);
+        const { latitude, longitude } = position.coords;
+        const userLocation = { lat: latitude, lng: longitude };
+        
+        console.log('Setting map center to:', userLocation);
+        persistentMap.setCenter(userLocation);
+        persistentMap.setZoom(14);
+        
+        // Add a marker for user location
+        new google.maps.Marker({
+          position: userLocation,
+          map: persistentMap,
+          title: 'Your Location',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(24, 24)
+          }
+        });
+        
+        console.log('Centered persistent map on user location:', userLocation);
+        setError(null); // Clear any previous errors
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        let errorMessage = 'Unable to access your location. ';
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please allow location access in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.';
+            break;
+          default:
+            errorMessage += 'Please try again.';
+        }
+        
+        setError(errorMessage);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
 
   // ===== USER STATE MANAGEMENT =====
-  const updateUserInfo = (newUserInfo) => {
-    setUserInfo(prev => ({ ...prev, ...newUserInfo }));
+  const handleLogout = async () => {
+    try {
+      // Call server logout endpoint to revoke OAuth tokens
+      if (userInfo.jwtToken) {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ token: userInfo.jwtToken })
+        });
+        
+        if (response.ok) {
+          // no-op
+        } else {
+          // continue client-side
+        }
+      } else {
+        // no token
+      }
+
+      // Get provider-specific logout URLs
+      try {
+        const logoutUrlsResponse = await fetch('/api/auth/logout-urls');
+        if (logoutUrlsResponse.ok) {
+          const logoutUrls = await logoutUrlsResponse.json();
+          
+          // Redirect to provider-specific logout based on current provider
+          if (userInfo.provider && logoutUrls[userInfo.provider]) {
+            const logoutUrl = logoutUrls[userInfo.provider];
+            console.log(`Redirecting to ${userInfo.provider} logout: ${logoutUrl}`);
+            
+            // Open logout URL in a new window/tab
+            window.open(logoutUrl, '_blank', 'width=400,height=600');
+          }
+        }
+      } catch (error) {
+          // ignore
+      }
+
+      // Clear local state
+      setUserInfo({
+        userId: '',
+        displayName: '',
+        email: '',
+        provider: '',
+          customUsername: '',
+          username: '',
+        isLoggedIn: false,
+        jwtToken: ''
+      });
+      localStorage.removeItem('hideandseek_token');
+      setShowProfile(false);
+      
+      // Set flag to force account selection on next login
+      setForceAccountSelection(true);
+      localStorage.setItem('hideandseek_force_account_selection', 'true');
+      
+      // Force a page reload to clear any cached authentication state
+      window.location.reload();
+    } catch (error) {
+      // Even if there's an error, clear local state and reload
+      setUserInfo({
+        userId: '',
+        displayName: '',
+        email: '',
+        provider: '',
+        isLoggedIn: false,
+        jwtToken: ''
+      });
+      localStorage.removeItem('hideandseek_token');
+      setShowProfile(false);
+      window.location.reload();
+    }
+  };
+
+  const handleProfileClick = () => {
+    setShowProfile(true);
+  };
+
+  const handleProfileClose = () => {
+    setShowProfile(false);
   };
 
   // ===== RENDER BASED ON MODE =====
+  // Gate the entire app behind authentication: show a dedicated login screen until logged in
+  if (!userInfo.isLoggedIn) {
+    return (
+      <div className="app">
+        <OAuthLogin 
+          onLoginSuccess={(userData) => {
+            const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
+            setUserInfo({
+              userId: userData.UserId,
+              displayName: userData.DisplayName,
+              email: userData.Email,
+              provider: userData.Provider,
+              customUsername: userData.CustomUsername || '',
+              username: computedUsername,
+              isLoggedIn: true,
+              jwtToken: userData.Token
+            });
+            setForceAccountSelection(false);
+            localStorage.removeItem('hideandseek_force_account_selection');
+          }}
+          onLoginError={(error) => {
+            setError(error);
+          }}
+          forceAccountSelection={forceAccountSelection}
+        />
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Validating authentication...</p>
+          </div>
+        )}
+        {error && (
+          <div className="error-banner">
+            <p>{error}</p>
+            <button onClick={() => setError(null)}>Dismiss</button>
+          </div>
+        )}
+      </div>
+    );
+  }
   if (currentMode === 'mainMenu') {
     return (
       <div className="app">
-        {/* User Display */}
-        <UserDisplay 
-          username={userInfo.username}
-          isGuest={userInfo.isGuest}
-        />
+        {/* Persistent Background Map - Always visible on the right side */}
+        <div className="persistent-map">
+          <div id="persistent-map-container" className="map-background">
+            {!mapsLoaded && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#667eea',
+                fontSize: '1.2rem',
+                fontWeight: '600',
+                textAlign: 'center',
+                padding: '2rem'
+              }}>
+                {GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY' 
+                  ? '🗺️ Google Maps API key not configured'
+                  : '🗺️ Loading Google Maps...'
+                }
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* User Display - Show when user is logged in */}
+        {userInfo.isLoggedIn && (
+          <UserDisplay 
+            username={userInfo.username}
+            isGuest={false}
+            onProfileClick={handleProfileClick}
+          />
+        )}
         
         {/* Mode Switch Button */}
         <div className="mode-switch">
@@ -75,32 +463,136 @@ function App() {
             Map View
           </button>
         </div>
+
+        {/* Center on Me Button for Main Menu */}
+        {userInfo.isLoggedIn && persistentMap && (
+          <div style={{
+            position: 'fixed',
+            top: '120px',
+            left: '10px',
+            zIndex: 2500
+          }}>
+            <button 
+              className="report-button"
+              onClick={() => centerOnPersistentMap()}
+              style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                marginBottom: '0.5rem',
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 2px 10px rgba(102, 126, 234, 0.3)'
+              }}
+            >
+              📍 Center on Me
+            </button>
+          </div>
+        )}
         
-        {/* Show login only for first-time users, otherwise show main menu */}
-        {isFirstTimeUser ? (
-          <ReportingFlow 
-            onUserStateChange={updateUserInfo}
-            userInfo={userInfo}
+        {/* Show OAuth login if not logged in, otherwise show main menu */}
+        {!userInfo.isLoggedIn ? (
+          <OAuthLogin 
+            onLoginSuccess={(userData) => {
+              const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
+              setUserInfo({
+                userId: userData.UserId,
+                displayName: userData.DisplayName,
+                email: userData.Email,
+                provider: userData.Provider,
+                customUsername: userData.CustomUsername || '',
+                username: computedUsername,
+                isLoggedIn: true,
+                jwtToken: userData.Token
+              });
+              // Reset the force account selection flag after successful login
+              setForceAccountSelection(false);
+              localStorage.removeItem('hideandseek_force_account_selection');
+              console.log('✅ DEBUG: forceAccountSelection reset to FALSE after successful login');
+            }}
+            onLoginError={(error) => {
+              setError(error);
+            }}
+            forceAccountSelection={forceAccountSelection}
           />
         ) : (
           <ReportingFlow 
-            onUserStateChange={updateUserInfo}
             userInfo={userInfo}
             startAtMainMenu={true}
+            onAppLogout={handleLogout}
+            onProfileClick={handleProfileClick}
           />
+        )}
+        
+        {/* Full Screen Map Overlay */}
+        <div className={`fullscreen-map-overlay ${false ? 'active' : ''}`}>
+          <button 
+            className="close-map-btn"
+            onClick={() => {}}
+          >
+            ✕ Close Map
+          </button>
+          <div className="map-container">
+            <div className="map-content">
+              <div className="map-background">
+                <div className="map-grid"></div>
+              </div>
+              <div className="map-address-info">
+                <div className="address-label">🗺️ Full Screen Map</div>
+                <div className="coordinates-label">
+                  Click anywhere to select coordinates
+                </div>
+              </div>
+              <div className="map-click-instructions">
+                <p>🗺️ Full Screen Map View</p>
+                <p>📍 Click anywhere on the map to select coordinates</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* User Profile Modal */}
+        {showProfile && (
+          <UserProfile
+            userInfo={userInfo}
+            onClose={handleProfileClose}
+            onLogout={handleLogout}
+          />
+        )}
+        
+        {/* Loading indicator */}
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Validating authentication...</p>
+          </div>
+        )}
+        
+        {/* Error display */}
+        {error && (
+          <div className="error-banner">
+            <p>{error}</p>
+            <button onClick={() => setError(null)}>Dismiss</button>
+          </div>
         )}
       </div>
     );
   }
 
-  // ===== MAP MODE (Original Implementation) =====
+  // ===== MAP MODE =====
   return (
     <div className="app">
       {/* User Display for Map Interface */}
-      <UserDisplay 
-        username={userInfo.username}
-        isGuest={userInfo.isGuest}
-      />
+      {userInfo.isLoggedIn && (
+        <UserDisplay 
+          username={userInfo.username}
+          isGuest={false}
+          onProfileClick={handleProfileClick}
+        />
+      )}
       
       {/* Mode Switch Button */}
       <div className="mode-switch">
@@ -118,8 +610,66 @@ function App() {
         </button>
       </div>
 
-      {/* Original Map Interface */}
-      <MapInterface />
+      {/* Show OAuth login if not logged in, otherwise show map */}
+      {!userInfo.isLoggedIn ? (
+        <OAuthLogin 
+          onLoginSuccess={(userData) => {
+            const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
+            setUserInfo({
+              userId: userData.UserId,
+              displayName: userData.DisplayName,
+              email: userData.Email,
+              provider: userData.Provider,
+              customUsername: userData.CustomUsername || '',
+              username: computedUsername,
+              isLoggedIn: true,
+              jwtToken: userData.Token
+            });
+            // Reset the force account selection flag after successful login
+            setForceAccountSelection(false);
+            localStorage.removeItem('hideandseek_force_account_selection');
+            console.log('✅ DEBUG: forceAccountSelection reset to FALSE after successful login');
+          }}
+          onLoginError={(error) => {
+            setError(error);
+          }}
+          forceAccountSelection={forceAccountSelection}
+        />
+      ) : (
+        <MapInterface 
+          userInfo={userInfo} 
+          mapsLoaded={mapsLoaded}
+          persistentMap={persistentMap}
+          setError={setError}
+          error={error}
+          setCurrentMode={setCurrentMode}
+        />
+      )}
+      
+      {/* User Profile Modal */}
+      {showProfile && (
+        <UserProfile
+          userInfo={userInfo}
+          onClose={handleProfileClose}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {/* Loading indicator */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>Validating authentication...</p>
+        </div>
+      )}
+
+      {/* Error display */}
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>Dismiss</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -128,118 +678,65 @@ function App() {
  * Original map interface component.
  * This is the previous implementation with Google Maps integration.
  */
-function MapInterface() {
+function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode }) {
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [noiseReports, setNoiseReports] = useState([]);
   const [showReportForm, setShowReportForm] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const mapRef = React.useRef(null);
   const markersRef = React.useRef([]);
   const updateIntervalRef = React.useRef(null);
 
-  // ===== GOOGLE MAPS INITIALIZATION =====
-  React.useEffect(() => {
-    const initMap = async () => {
-      try {
-        // Check if API key is configured
-        if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
-          setError('Google Maps API key not configured. Please add your API key to use the map feature.');
-          setLoading(false);
-          return;
-        }
+  // Google Maps state is now handled in the main App component
+  // No need to duplicate the initialization here
 
-        const { Loader } = await import('@googlemaps/js-api-loader');
-        
-        const loader = new Loader({
-          apiKey: GOOGLE_MAPS_API_KEY,
-          version: 'weekly',
-          libraries: ['places']
-        });
-
-        const google = await loader.load();
-        
-        // Get user's current location
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude, longitude } = position.coords;
-              setUserLocation({ lat: latitude, lng: longitude });
-              
-              // Initialize map centered on user location
-              const mapInstance = new google.maps.Map(mapRef.current, {
-                center: { lat: latitude, lng: longitude },
-                zoom: 14,
-                mapTypeId: google.maps.MapTypeId.ROADMAP,
-                styles: [
-                  {
-                    featureType: 'poi',
-                    elementType: 'labels',
-                    stylers: [{ visibility: 'off' }]
-                  }
-                ]
-              });
-
-              setMap(mapInstance);
-              setLoading(false);
-
-              // Add user location marker
-              new google.maps.Marker({
-                position: { lat: latitude, lng: longitude },
-                map: mapInstance,
-                title: 'Your Location',
-                icon: {
-                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
-                      <circle cx="12" cy="12" r="3" fill="white"/>
-                    </svg>
-                  `),
-                  scaledSize: new google.maps.Size(24, 24)
-                }
-              });
-
-              // Start periodic updates
-              startPeriodicUpdates(mapInstance);
-            },
-            (error) => {
-              console.error('Error getting location:', error);
-              // Fallback to default location (New York City)
-              const defaultLocation = { lat: 40.7128, lng: -74.0060 };
-              setUserLocation(defaultLocation);
-              
-              const mapInstance = new google.maps.Map(mapRef.current, {
-                center: defaultLocation,
-                zoom: 12,
-                mapTypeId: google.maps.MapTypeId.ROADMAP
-              });
-
-              setMap(mapInstance);
-              setLoading(false);
-              startPeriodicUpdates(mapInstance);
-            }
-          );
-        } else {
-          setError('Geolocation is not supported by this browser.');
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error loading Google Maps:', error);
-        setError('Failed to load Google Maps. Please check your API key and internet connection.');
-        setLoading(false);
-      }
-    };
-
-    initMap();
-
-    return () => {
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
-      }
-    };
-  }, []);
+  // Initialize the map when mapsLoaded becomes true
+  useEffect(() => {
+    if (mapsLoaded && mapRef.current && !map) {
+      console.log('Initializing map in MapInterface...');
+      console.log('Map container dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
+      console.log('Map container styles:', window.getComputedStyle(mapRef.current));
+      
+      const mapInstance = new google.maps.Map(mapRef.current, {
+        center: { lat: 40.7128, lng: -74.0060 }, // New York City
+        zoom: 10,
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        disableDefaultUI: false, // Show default controls for main map
+        zoomControl: true,
+        streetViewControl: true,
+        mapTypeControl: true,
+        fullscreenControl: true,
+        styles: [
+          {
+            featureType: 'all',
+            elementType: 'labels.text.fill',
+            stylers: [{ color: '#667eea' }]
+          },
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#bbdefb' }]
+          }
+        ]
+      });
+      
+      setMap(mapInstance);
+      setLoading(false);
+      
+      // Start periodic updates
+      startPeriodicUpdates(mapInstance);
+      
+      console.log('Map initialized successfully in MapInterface');
+      
+      // Debug map size after initialization
+      setTimeout(() => {
+        console.log('Map instance bounds:', mapInstance.getBounds());
+        console.log('Map container final dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
+      }, 1000);
+    }
+  }, [mapsLoaded]); // Remove 'map' from dependencies to prevent circular updates
 
   const startPeriodicUpdates = (mapInstance) => {
     // Update noise reports every 15 minutes
@@ -327,6 +824,33 @@ function MapInterface() {
     }
   };
 
+  // Center map on user's current location on demand
+  const centerOnUser = () => {
+    console.log('Center on Me button clicked!');
+    if (!map) return;
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        map.setCenter({ lat: latitude, lng: longitude });
+        map.setZoom(14);
+        new google.maps.Marker({
+          position: { lat: latitude, lng: longitude },
+          map,
+          title: 'Your Location'
+        });
+      },
+      () => {
+        setError('Unable to access your location. Please allow location access or try again.');
+      },
+      { enableHighAccuracy: true, timeout: 7000, maximumAge: 300000 }
+    );
+  };
+
   const getNoiseLevelColor = (level) => {
     if (level <= 3) return '#4CAF50'; // Green for low noise
     if (level <= 6) return '#FF9800'; // Orange for medium noise
@@ -343,17 +867,23 @@ function MapInterface() {
 
   const handleSubmitReport = async (reportData) => {
     try {
-      await fetch('/api/noisereports', {
+      const response = await fetch('/api/noisereports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
         },
         body: JSON.stringify({
           ...reportData,
           latitude: selectedLocation.lat,
-          longitude: selectedLocation.lng
+          longitude: selectedLocation.lng,
+          submittedBy: userInfo.userId
         })
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit report');
+      }
 
       setShowReportForm(false);
       setSelectedLocation(null);
@@ -368,63 +898,67 @@ function MapInterface() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <p>Loading map...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="error">
-        <h2>Map Not Available</h2>
-        <p>{error}</p>
-        <div className="error-actions">
-          <button 
-            className="btn btn-primary"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </button>
-          <button 
-            className="btn btn-secondary"
-            onClick={() => setCurrentMode('mainMenu')}
-          >
-            Use Main Menu Instead
-          </button>
-        </div>
-        <div className="api-key-info">
-          <h3>To enable the map feature:</h3>
-          <ol>
-            <li>Get a Google Maps API key from <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
-            <li>Enable the "Maps JavaScript API"</li>
-            <li>Replace <code>YOUR_GOOGLE_MAPS_API_KEY</code> in <code>src/App.jsx</code> with your actual API key</li>
-          </ol>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app">
-      {/* User Display for Map Interface */}
-      <UserDisplay 
-        username={userInfo.username}
-        isGuest={userInfo.isGuest}
-      />
-      
-      <header className="header">
+      {/* Header hidden in map mode to maximize map viewport */}
+      <header className="header" style={{ display: 'none' }}>
         <h1>Noise Report Map</h1>
         <p>Report and view noise complaints in your area</p>
       </header>
       
-      <div className="map-container">
-        <div ref={mapRef} className="map" onClick={handleMapClick}></div>
+      <div className="map-container fullscreen">
+        <div ref={mapRef} className="map" onClick={handleMapClick} style={{ width: '100%', height: '100vh' }}></div>
         
+        {/* Overlays for loading/error */}
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Loading map...</p>
+          </div>
+        )}
+        {error && (
+          <div className="error" style={{ position: 'absolute', inset: 0 }}>
+            <h2>Map Not Available</h2>
+            <p>{error}</p>
+            <div className="error-actions">
+              <button 
+                className="btn btn-primary"
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  setTimeout(() => setLoading(false), 100);
+                }}
+              >
+                Retry
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setCurrentMode('mainMenu')}
+              >
+                Use Main Menu Instead
+              </button>
+            </div>
+            <div className="api-key-info">
+              <h3>To enable the map feature:</h3>
+              <ol>
+                <li>Get a Google Maps API key from <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
+                <li>Enable the "Maps JavaScript API"</li>
+                <li>Create <code>hideandseek.client/.env.local</code> with:<br/> <code>VITE_GOOGLE_MAPS_API_KEY=YOUR_KEY</code></li>
+                <li>Restart the dev server: <code>npm run dev</code></li>
+                <li>Optional security: Restrict the key to referrer <code>http://localhost:50696/*</code></li>
+              </ol>
+            </div>
+          </div>
+        )}
+
         <div className="map-controls">
+          <button 
+            className="report-button"
+            onClick={centerOnUser}
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', marginBottom: '0.5rem' }}
+          >
+            Center on Me
+          </button>
           <button 
             className="report-button"
             onClick={() => setShowReportForm(true)}
@@ -476,8 +1010,6 @@ function NoiseReportForm({ location, onSubmit, onCancel }) {
     description: '',
     noiseType: 'Traffic',
     noiseLevel: 5,
-    reporterName: '',
-    contactEmail: '',
     address: ''
   });
 
@@ -548,30 +1080,6 @@ function NoiseReportForm({ location, onSubmit, onCancel }) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="reporterName">Your Name</label>
-            <input
-              type="text"
-              id="reporterName"
-              name="reporterName"
-              value={formData.reporterName}
-              onChange={handleChange}
-              placeholder="Optional"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="contactEmail">Email</label>
-            <input
-              type="email"
-              id="contactEmail"
-              name="contactEmail"
-              value={formData.contactEmail}
-              onChange={handleChange}
-              placeholder="Optional"
-            />
-          </div>
-
-          <div className="form-group">
             <label htmlFor="address">Address</label>
             <input
               type="text"
@@ -596,7 +1104,5 @@ function NoiseReportForm({ location, onSubmit, onCancel }) {
     </div>
   );
 }
-
-
 
 export default App;

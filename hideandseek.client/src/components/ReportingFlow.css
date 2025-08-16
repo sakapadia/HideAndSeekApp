@@ -1,3 +1,12 @@
+/* ===== CSS CUSTOM PROPERTIES FOR RESPONSIVE LAYOUT ===== */
+:root {
+  --main-menu-width: 25vw; /* 1/4 of viewport width */
+  --main-menu-width-max: 33.33vw; /* 1/3 of viewport width */
+  --content-width: calc(100vw - var(--main-menu-width));
+  --screen-height: 100vh;
+  --content-height: calc(var(--screen-height) - 4rem);
+}
+
 /* ===== REPORTING FLOW STYLES ===== */
 
 .reporting-flow {
@@ -31,7 +40,7 @@
   overflow: hidden;
 }
 
-.progress-fill {
+.progress-fill { 
   height: 100%;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   border-radius: 4px;
@@ -303,67 +312,7 @@
 }
 
 /* ===== MAP CONTAINER ===== */
-.map-container {
-  margin-bottom: 2rem;
-}
-
-.map-placeholder {
-  height: 300px;
-  background: #f8f9fa;
-  border: 2px dashed #e1e5e9;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  color: #999;
-  font-size: 1.1rem;
-}
-
-.map-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.map-btn {
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e1e5e9;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.zoom-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.zoom-btn {
-  width: 30px;
-  height: 30px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e1e5e9;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.address-preview {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-}
+/* Map styles are now defined in the WHERE SCREEN section below */
 
 /* ===== RADIO GROUP ===== */
 .radio-group {
@@ -739,18 +688,25 @@
 .user-display {
   position: fixed;
   top: 1rem;
-  left: 1rem;
+  right: 1rem;
   background: rgba(255, 255, 255, 0.95);
   padding: 0.5rem 1rem;
   border-radius: 20px;
   border: 2px solid #667eea;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  z-index: 2000; /* Higher than map and screens to show on top */
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
   font-weight: 600;
+  backdrop-filter: blur(10px); /* Glass effect */
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .user-label {
@@ -761,6 +717,29 @@
 .user-name {
   color: #667eea;
   font-weight: 700;
+}
+
+.profile-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  margin-left: 8px;
+}
+
+.profile-btn:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4c93 100%);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -787,9 +766,7 @@
     flex-direction: column;
   }
   
-  .map-placeholder {
-    height: 250px;
-  }
+  /* Map height adjusted for smaller screens in WHERE SCREEN section */
   
   .btn-social {
     font-size: 0.9rem;
@@ -824,7 +801,7 @@
   
   .user-display {
     top: 0.5rem;
-    left: 0.5rem;
+    right: 0.5rem;
     padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
   }
@@ -845,10 +822,7 @@
     font-size: 0.9rem;
   }
   
-  .map-placeholder {
-    height: 200px;
-    font-size: 1rem;
-  }
+  /* Map height adjusted for smaller screens in WHERE SCREEN section */
   
   .btn-social {
     font-size: 0.8rem;
@@ -878,7 +852,7 @@
   
   .user-display {
     top: 0.25rem;
-    left: 0.25rem;
+    right: 0.25rem;
     padding: 0.3rem 0.6rem;
     font-size: 0.75rem;
     border-radius: 15px;
@@ -1169,13 +1143,65 @@
   }
 }
 
-/* ===== NOISE LEVEL SECTION ===== */
-.noise-level-section {
-  margin: 2rem 0;
-  padding: 1.5rem;
-  background: #f8f9fa;
-  border-radius: 12px;
+/* ===== WHAT SCREEN ===== */
+
+.what-screen .chips-list {
+  margin-bottom: 1.5rem;
+}
+
+.what-screen .search-bar {
+  margin-bottom: 2rem;
+}
+
+/* Description Section */
+.description-section {
+  margin-bottom: 2rem;
+}
+
+.description-section .section-title {
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.description-input {
+  margin-bottom: 1rem;
+}
+
+.description-label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.description-textarea {
+  width: 100%;
+  padding: 12px;
   border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.3s ease;
+}
+
+.description-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.description-textarea::placeholder {
+  color: #adb5bd;
+}
+
+/* Noise Level Section */
+.noise-level-section {
+  margin-bottom: 2rem;
 }
 
 .noise-level-input {
@@ -1421,5 +1447,1433 @@
   
   .media-option h3 {
     font-size: 1.1rem;
+  }
+} 
+
+/* ===== PERSISTENT BACKGROUND MAP ===== */
+.persistent-map {
+  position: fixed;
+  top: 0;
+  left: var(--main-menu-width); /* Flexible width based on viewport */
+  right: 0;
+  bottom: 0;
+  background: #e3f2fd;
+  z-index: 1; /* Behind other content */
+  pointer-events: auto; /* Allow interaction with Google Maps */
+  /* Responsive sizing */
+  width: var(--content-width);
+  height: var(--screen-height);
+}
+
+.persistent-map .map-background {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Google Maps will fill this container */
+#persistent-map-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== WHERE SCREEN ===== */
+
+.where-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  padding: 2rem;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.where-screen-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  height: var(--content-height); /* Full height minus padding */
+  /* Responsive sizing */
+  min-height: 0;
+  flex: 1;
+}
+
+.where-address-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  color: white;
+  flex-shrink: 0; /* Don't shrink the address section */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.where-address-section .form-group {
+  margin-bottom: 1.5rem;
+}
+
+/* Style form elements within the purple section */
+.where-address-section .input-group label {
+  color: white;
+  font-weight: 600;
+}
+
+.where-address-section .input-field {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #333;
+}
+
+.where-address-section .input-field:focus {
+  border-color: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.where-address-section .radio-group label {
+  color: white;
+  font-weight: 600;
+}
+
+.where-address-section .radio-text {
+  color: white;
+}
+
+.where-address-section .radio-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.where-map-section {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9); /* Semi-transparent */
+  padding: 1rem;
+  border-radius: 12px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  flex: 1; /* Take up remaining space */
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10px); /* Blur effect for glass-like appearance */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Responsive sizing */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.where-map-section .map-container {
+  width: 100% !important;
+  height: 100% !important; /* Fill the entire map section */
+  border: 2px solid rgba(102, 126, 234, 0.5) !important; /* Semi-transparent border */
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: rgba(227, 242, 253, 0.8) !important; /* Semi-transparent background */
+  position: relative !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  /* Responsive sizing */
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  /* Override App.css conflicting rules */
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  display: flex !important;
+  padding-left: 0 !important;
+  flex: 1 !important; /* Fill the map section */
+}
+
+.where-map-section .map-container .map-content {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  cursor: crosshair !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(187, 222, 251, 0.8) !important; /* Semi-transparent */
+  /* Debug styles */
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+  border: none !important; /* Remove debug border */
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #667eea; /* Professional border */
+  border-radius: 12px;
+  overflow: hidden;
+  background: #e3f2fd; /* Fallback background */
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Responsive sizing */
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  cursor: crosshair;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #bbdefb; /* Debug background to see the content area */
+  /* Responsive sizing */
+  min-height: 0;
+  box-sizing: border-box;
+  border: none; /* Remove debug border */
+  flex: 1;
+}
+
+.map-background {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+/* Google Maps will handle the map display */
+.map-grid {
+  /* Removed - Google Maps handles this */
+}
+
+.map-address-info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  max-width: 300px;
+}
+
+.map-clicked-coordinates {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #28a745;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  max-width: 300px;
+}
+
+.clicked-label {
+  font-weight: 600;
+  color: #28a745;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.address-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.coordinates-label {
+  font-family: 'Courier New', monospace;
+  color: #667eea;
+  font-size: 0.9rem;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
+.map-click-instructions {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #e1e5e9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  text-align: center;
+}
+
+.map-click-instructions p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.where-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.where-actions .btn {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* ===== FORM COMPONENTS ===== */
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Radio Group Styling */
+.radio-group {
+  margin-bottom: 1.5rem;
+}
+
+.radio-group label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.radio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.radio-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.radio-option label {
+  margin: 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+  .persistent-map {
+    left: 0; /* On mobile, take full width */
+    width: 100vw;
+  }
+  
+  .where-screen {
+    left: 0; /* On mobile, take full width */
+    padding: 1rem;
+    width: 100vw;
+  }
+  
+  .where-screen-content {
+    height: calc(100vh - 2rem);
+    margin-top: 1rem;
+  }
+  
+  .where-actions {
+    flex-direction: column;
+  }
+  
+  .where-map-section .map-container {
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .where-screen {
+    padding: 0.5rem;
+  }
+  
+  .where-screen-content {
+    height: calc(100vh - 1rem);
+    margin-top: 0.5rem;
+    gap: 1rem;
+  }
+  
+  .where-address-section {
+    padding: 1rem;
+  }
+  
+  .where-map-section {
+    padding: 0.5rem;
+  }
+} 
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (min-width: 1200px) {
+  :root {
+    --main-menu-width: 33.33vw; /* 1/3 on larger screens */
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 768px) {
+  :root {
+    --main-menu-width: 28vw; /* Between 1/4 and 1/3 on medium screens */
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --main-menu-width: 25vw; /* 1/4 on smaller screens */
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --main-menu-width: 100vw; /* Full width on mobile */
+  }
+  
+  .persistent-map {
+    left: 0;
+    width: 100vw;
+  }
+  
+  .where-screen {
+    left: 0;
+    width: 100vw;
+  }
+} 
+
+/* ===== REVIEW SCREEN ===== */
+.review-summary {
+  margin-top: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.summary-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e5e9;
+}
+
+.section-title {
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #667eea;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 1rem;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-label {
+  font-weight: 600;
+  color: #333;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.summary-value {
+  flex: 1;
+  color: #666;
+  line-height: 1.4;
+}
+
+.edit-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+}
+
+.edit-btn:hover {
+  background: #5a6fd8;
+}
+
+.edit-btn:active {
+  transform: translateY(1px);
+}
+
+.review-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.review-actions .btn {
+  min-width: 150px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+}
+
+/* ===== RESPONSIVE DESIGN FOR REVIEW ===== */
+@media (max-width: 768px) {
+  .summary-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .summary-label {
+    min-width: auto;
+    font-weight: 700;
+    color: #667eea;
+  }
+  
+  .summary-value {
+    width: 100%;
+    padding-left: 1rem;
+    border-left: 3px solid #667eea;
+  }
+  
+  .edit-btn {
+    align-self: flex-end;
+  }
+  
+  .review-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .review-actions .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .review-summary {
+    margin-top: 1rem;
+  }
+  
+  .summary-section {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .section-title {
+    font-size: 1.1rem;
+  }
+  
+  .summary-item {
+    padding: 0.5rem 0;
+  }
+  
+  .edit-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ===== MAIN MENU SCREEN ===== */
+.main-menu-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.menu-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  color: white;
+}
+
+.menu-header .heading {
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.menu-header .text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+}
+
+.menu-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  max-width: 800px;
+  width: 100%;
+  margin-bottom: 3rem;
+}
+
+.menu-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.menu-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  border-color: #667eea;
+}
+
+.menu-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.menu-card h3 {
+  color: #333;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.menu-card p {
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.menu-footer {
+  text-align: center;
+  color: white;
+}
+
+.menu-footer .text {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+.btn-outline {
+  background: transparent;
+  color: white;
+  border: 2px solid white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-outline:hover {
+  background: white;
+  color: #667eea;
+}
+
+/* ===== RESPONSIVE DESIGN FOR MAIN MENU ===== */
+@media (max-width: 768px) {
+  .main-menu-screen {
+    padding: 1rem;
+  }
+  
+  .menu-options {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .menu-card {
+    padding: 1.5rem;
+  }
+  
+  .menu-icon {
+    font-size: 2.5rem;
+  }
+  
+  .menu-card h3 {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu-header {
+    margin-bottom: 2rem;
+  }
+  
+  .menu-options {
+    gap: 1rem;
+  }
+  
+  .menu-card {
+    padding: 1rem;
+  }
+  
+  .menu-icon {
+    font-size: 2rem;
+  }
+}
+
+/* ===== WHAT SCREEN ===== */
+
+.what-screen .chips-list {
+  margin-bottom: 1.5rem;
+}
+
+.what-screen .search-bar {
+  margin-bottom: 2rem;
+}
+
+/* Description Section */
+.description-section {
+  margin-bottom: 2rem;
+}
+
+.description-section .section-title {
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.description-input {
+  margin-bottom: 1rem;
+}
+
+.description-label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.description-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.3s ease;
+}
+
+.description-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.description-textarea::placeholder {
+  color: #adb5bd;
+}
+
+/* Noise Level Section */
+.noise-level-section {
+  margin-bottom: 2rem;
+}
+
+.noise-level-input {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.noise-level-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem;
+}
+
+.noise-level-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.noise-slider {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: #e1e5e9;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.noise-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.noise-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.noise-value {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 1.2rem;
+  min-width: 40px;
+  text-align: center;
+}
+
+.noise-suggestion {
+  color: #666;
+  font-style: italic;
+  margin: 0;
+  padding: 0.5rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
+}
+
+/* ===== SCREEN ACTIONS ===== */
+.screen-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.screen-actions .btn {
+  min-width: 100px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+}
+
+/* ===== RECURRENCE TOGGLE SECTION ===== */
+.recurrence-toggle-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px solid #e1e5e9;
+}
+
+.recurrence-config {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e1e5e9;
+}
+
+.recurrence-note {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+/* ===== CUSTOM TIME SECTION ===== */
+.custom-time-section {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px solid #e1e5e9;
+}
+
+/* ===== MEDIA OPTIONS ===== */
+.media-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.media-option {
+  background: white;
+  border: 2px solid #e1e5e9;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.media-option:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.media-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.media-option h3 {
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.media-option p {
+  color: #666;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+/* ===== MEDIA PREVIEW ===== */
+.media-preview {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px solid #e1e5e9;
+}
+
+.media-preview h3 {
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.media-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.media-item img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e1e5e9;
+}
+
+.media-name {
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+  word-break: break-word;
+}
+
+/* ===== RESPONSIVE DESIGN FOR NEW COMPONENTS ===== */
+@media (max-width: 768px) {
+  .noise-level-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .noise-value {
+    text-align: center;
+  }
+  
+  .screen-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .screen-actions .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .media-options {
+    grid-template-columns: 1fr;
+  }
+  
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .noise-level-section,
+  .recurrence-toggle-section,
+  .custom-time-section,
+  .media-preview {
+    padding: 1rem;
+  }
+  
+  .media-icon {
+    font-size: 2.5rem;
+  }
+  
+  .media-option h3 {
+    font-size: 1.1rem;
+  }
+} 
+
+/* ===== PERSISTENT BACKGROUND MAP ===== */
+.persistent-map {
+  position: fixed;
+  top: 0;
+  left: var(--main-menu-width); /* Flexible width based on viewport */
+  right: 0;
+  bottom: 0;
+  background: #e3f2fd;
+  z-index: 1; /* Behind other content */
+  pointer-events: auto; /* Allow interaction with Google Maps */
+  /* Responsive sizing */
+  width: var(--content-width);
+  height: var(--screen-height);
+}
+
+.persistent-map .map-background {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Google Maps will fill this container */
+#persistent-map-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== WHERE SCREEN ===== */
+
+.where-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  padding: 2rem;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.where-screen-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  height: var(--content-height); /* Full height minus padding */
+  /* Responsive sizing */
+  min-height: 0;
+  flex: 1;
+}
+
+.where-address-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  color: white;
+  flex-shrink: 0; /* Don't shrink the address section */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.where-address-section .form-group {
+  margin-bottom: 1.5rem;
+}
+
+/* Style form elements within the purple section */
+.where-address-section .input-group label {
+  color: white;
+  font-weight: 600;
+}
+
+.where-address-section .input-field {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #333;
+}
+
+.where-address-section .input-field:focus {
+  border-color: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.where-address-section .radio-group label {
+  color: white;
+  font-weight: 600;
+}
+
+.where-address-section .radio-text {
+  color: white;
+}
+
+.where-address-section .radio-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.where-map-section {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9); /* Semi-transparent */
+  padding: 1rem;
+  border-radius: 12px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  flex: 1; /* Take up remaining space */
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10px); /* Blur effect for glass-like appearance */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Responsive sizing */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.where-map-section .map-container {
+  width: 100% !important;
+  height: 100% !important; /* Fill the entire map section */
+  border: 2px solid rgba(102, 126, 234, 0.5) !important; /* Semi-transparent border */
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: rgba(227, 242, 253, 0.8) !important; /* Semi-transparent background */
+  position: relative !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  /* Responsive sizing */
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  /* Override App.css conflicting rules */
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  display: flex !important;
+  padding-left: 0 !important;
+  flex: 1 !important; /* Fill the map section */
+}
+
+.where-map-section .map-container .map-content {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  cursor: crosshair !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(187, 222, 251, 0.8) !important; /* Semi-transparent */
+  /* Debug styles */
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+  border: none !important; /* Remove debug border */
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #667eea; /* Professional border */
+  border-radius: 12px;
+  overflow: hidden;
+  background: #e3f2fd; /* Fallback background */
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Responsive sizing */
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  cursor: crosshair;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #bbdefb; /* Debug background to see the content area */
+  /* Responsive sizing */
+  min-height: 0;
+  box-sizing: border-box;
+  border: none; /* Remove debug border */
+  flex: 1;
+}
+
+.map-background {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+/* Google Maps will handle the map display */
+.map-grid {
+  /* Removed - Google Maps handles this */
+}
+
+.map-address-info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  max-width: 300px;
+}
+
+.map-clicked-coordinates {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #28a745;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  max-width: 300px;
+}
+
+.clicked-label {
+  font-weight: 600;
+  color: #28a745;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.address-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.coordinates-label {
+  font-family: 'Courier New', monospace;
+  color: #667eea;
+  font-size: 0.9rem;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
+.map-click-instructions {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #e1e5e9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  text-align: center;
+}
+
+.map-click-instructions p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.where-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.where-actions .btn {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* ===== FORM COMPONENTS ===== */
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Radio Group Styling */
+.radio-group {
+  margin-bottom: 1.5rem;
+}
+
+.radio-group label {
+  display: block;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.radio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.radio-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.radio-option label {
+  margin: 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+  .persistent-map {
+    left: 0; /* On mobile, take full width */
+    width: 100vw;
+  }
+  
+  .where-screen {
+    left: 0; /* On mobile, take full width */
+    padding: 1rem;
+    width: 100vw;
+  }
+  
+  .where-screen-content {
+    height: calc(100vh - 2rem);
+    margin-top: 1rem;
+  }
+  
+  .where-actions {
+    flex-direction: column;
+  }
+  
+  .where-map-section .map-container {
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .where-screen {
+    padding: 0.5rem;
+  }
+  
+  .where-screen-content {
+    height: calc(100vh - 1rem);
+    margin-top: 0.5rem;
+    gap: 1rem;
+  }
+  
+  .where-address-section {
+    padding: 1rem;
+  }
+  
+  .where-map-section {
+    padding: 0.5rem;
   }
 } 

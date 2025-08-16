@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Logo, Heading, Text, Button, Input, Form,
-  ChipsList, SearchBar, Map, RadioGroup, ToggleGroup,
+  ChipsList, SearchBar, RadioGroup, ToggleGroup,
   DatePicker, CheckboxGroup, Toggle, RecurrenceWidget,
   ProgressBar
 } from './UIComponents';
@@ -163,11 +163,13 @@ export const WhatScreen = ({
   onCategorySelect,
   onSearchChange,
   onNoiseLevelChange,
+  onDescriptionChange,
   onNext,
   onBack,
   onCancel,
   searchValue = '',
-  noiseLevel = 5
+  noiseLevel = 5,
+  description = ''
 }) => {
   const popularCategories = ["Noise", "Traffic", "Construction", "Party", "Music"];
   const suggestedCategories = ["Industrial", "Animals", "Events", "Sports"];
@@ -201,8 +203,12 @@ export const WhatScreen = ({
     onNoiseLevelChange(parseInt(e.target.value));
   };
 
+  const handleDescriptionChange = (e) => {
+    onDescriptionChange(e.target.value);
+  };
+
   const selectedCategory = selectedCategories.length > 0 ? selectedCategories[0] : '';
-  const canProceed = selectedCategories.length > 0;
+  const canProceed = selectedCategories.length > 0 && description.trim().length > 0;
 
   return (
     <div className="screen what-screen">
@@ -240,6 +246,26 @@ export const WhatScreen = ({
         value={searchValue}
         onChange={handleSearchChange}
       />
+
+      {/* Description Section */}
+      <div className="description-section">
+        <h3 className="section-title">Description</h3>
+        <div className="description-input">
+          <label htmlFor="description" className="description-label">
+            Describe the noise issue in detail:
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            value={description}
+            onChange={handleDescriptionChange}
+            placeholder="Please describe what you're experiencing..."
+            rows={4}
+            className="description-textarea"
+            required
+          />
+        </div>
+      </div>
 
       {/* Noise Level Section */}
       <div className="noise-level-section">
@@ -298,69 +324,63 @@ export const WhatScreen = ({
  */
 export const WhereScreen = ({ 
   progress = 30,
-  selectedLocation = null,
   selectedAddress = '',
   blastRadius = '',
-  onLocationChange,
   onAddressChange,
   onBlastRadiusChange,
   onNext,
   onBack,
   onCancel
 }) => {
-  const canProceed = selectedLocation || selectedAddress;
+  const canProceed = selectedAddress;
 
   return (
     <div className="screen where-screen">
       <ProgressBar progress={progress} />
       <Heading text="Where is it occurring?" level={2} />
       
-      <Map
-        id="locationMap"
-        initialView="currentLocation"
-        showAddressPreview={true}
-        streetViewToggle={true}
-        satelliteViewToggle={true}
-        zoomControls={true}
-        onLocationChange={onLocationChange}
-      />
-      
-      <Input
-        id="address"
-        label="Address"
-        placeholder="Enter the address or location"
-        value={selectedAddress}
-        onChange={(e) => onAddressChange(e.target.value)}
-      />
-      
-      <RadioGroup
-        id="blastRadius"
-        label="Blast radius (if exact point unknown)"
-        options={["Small", "Medium", "Large"]}
-        selectedValue={blastRadius}
-        onChange={onBlastRadiusChange}
-      />
-      
-      <div className="screen-actions">
-        <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnBack"
-          text="← Back"
-          onClick={onBack}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnNextWhere"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!canProceed}
-          className="btn-primary"
-        />
+      <div className="where-screen-content">
+        {/* Address Input Section */}
+        <div className="where-address-section">
+          <Input
+            id="address"
+            label="Address"
+            placeholder="Enter the address or location"
+            value={selectedAddress}
+            onChange={(e) => onAddressChange(e.target.value)}
+          />
+          
+          <RadioGroup
+            id="blastRadius"
+            label="Blast radius (if exact point unknown)"
+            options={["Small", "Medium", "Large"]}
+            selectedValue={blastRadius}
+            onChange={onBlastRadiusChange}
+          />
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="where-actions">
+          <Button
+            id="btnCancel"
+            text="Cancel"
+            onClick={onCancel}
+            className="btn-secondary"
+          />
+          <Button
+            id="btnBack"
+            text="← Back"
+            onClick={onBack}
+            className="btn-secondary"
+          />
+          <Button
+            id="btnNextWhere"
+            text="NEXT →"
+            onClick={onNext}
+            disabled={!canProceed}
+            className="btn-primary"
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,8 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using HideandSeek.Server.Services;
+using Azure.Data.Tables;
 
 // ===== APPLICATION STARTUP CONFIGURATION =====
 // This file configures the ASP.NET Core application, including:
@@ -9,73 +13,87 @@ using HideandSeek.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ===== SERVICE REGISTRATION =====
-
-// Add MVC controllers for API endpoints
+// Add services to the container.
 builder.Services.AddControllers();
-
-// Add API documentation and testing tools
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ===== CORS CONFIGURATION =====
-// Configure Cross-Origin Resource Sharing to allow the React frontend
-// to communicate with the ASP.NET Core backend
+// Add CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        // Allow requests from any origin (suitable for development)
-        // In production, you should restrict this to specific domains
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
 });
 
-// ===== DEPENDENCY INJECTION =====
-// Register application services for dependency injection
-builder.Services.AddScoped<ITableStorageService, TableStorageService>();
+// Add HttpClient for OAuth services
+builder.Services.AddHttpClient();
 
-// ===== APPLICATION BUILD AND CONFIGURATION =====
+// Register services
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITableStorageService, TableStorageService>();
+builder.Services.AddScoped<IOAuthService, OAuthService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+
 var app = builder.Build();
 
-// ===== STATIC FILE SERVING =====
-// Serve static files (HTML, CSS, JS) from the wwwroot folder
-// This allows the React app to be served by the ASP.NET Core application
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// Initialize Azure Tables
+await InitializeAzureTables(app.Services);
 
-// ===== DEVELOPMENT TOOLS =====
-// Configure the HTTP request pipeline for development environment
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    // Enable Swagger UI for API documentation and testing
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// ===== MIDDLEWARE PIPELINE =====
-
-// Redirect HTTP requests to HTTPS for security
 app.UseHttpsRedirection();
-
-// Apply CORS policy to allow cross-origin requests
 app.UseCors("AllowAll");
-
-// Enable authorization (currently not used but available for future features)
 app.UseAuthorization();
-
-// ===== ROUTING =====
-// Map API controllers to handle HTTP requests
 app.MapControllers();
 
-// ===== SPA FALLBACK =====
-// For any request that doesn't match an API route, serve the React app
-// This enables client-side routing in the React application
+// Serve static files from the React app
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// Fallback to index.html for SPA routing
 app.MapFallbackToFile("/index.html");
 
-// ===== APPLICATION START =====
-// Start the web server and begin listening for HTTP requests
 app.Run();
+
+// Initialize Azure Tables
+static async Task InitializeAzureTables(IServiceProvider serviceProvider)
+{
+    try
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var connectionString = configuration.GetConnectionString("AzureTableStorage");
+        
+        if (string.IsNullOrEmpty(connectionString) || connectionString.Contains("YOUR_AZURE_STORAGE_CONNECTION_STRING_HERE"))
+        {
+            Console.WriteLine("⚠️  Azure Storage connection string not configured. Using development storage.");
+            return;
+        }
+
+        var tableServiceClient = new TableServiceClient(connectionString);
+        
+        // Create Users table
+        var usersTable = tableServiceClient.GetTableClient("Users");
+        await usersTable.CreateIfNotExistsAsync();
+        Console.WriteLine("✅ Users table initialized");
+        
+        // Create NoiseReports table
+        var reportsTable = tableServiceClient.GetTableClient("NoiseReports");
+        await reportsTable.CreateIfNotExistsAsync();
+        Console.WriteLine("✅ NoiseReports table initialized");
+        
+        Console.WriteLine("✅ Azure Tables initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error initializing Azure Tables: {ex.Message}");
+    }
+}

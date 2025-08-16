@@ -1,0 +1,217 @@
+.oauth-login {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  /* Add subtle purple border and shadow for accent */
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.18), 0 6px 16px rgba(0, 0, 0, 0.06);
+  text-align: center;
+  position: relative;
+}
+
+/* Soft purple glow around the card */
+.oauth-login::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7C3AED 0%, #A855F7 50%, #C084FC 100%);
+  filter: blur(22px);
+  opacity: 0.16;
+  z-index: -1;
+}
+
+.oauth-header {
+  margin-bottom: 2rem;
+}
+
+.oauth-header h2 {
+  /* Purple title to match app accents */
+  color: #4c1d95;
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.oauth-header p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Accent bar under the header */
+.oauth-header::after {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin: 12px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7C3AED, #A855F7);
+}
+
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.oauth-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.oauth-btn:active {
+  transform: translateY(0);
+}
+
+.oauth-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Google Button */
+.google-btn {
+  background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 75%, #EA4335 100%);
+  border-color: #4285F4;
+}
+
+.google-btn:hover {
+  background: linear-gradient(135deg, #3367D6 0%, #2E8B47 50%, #F4B400 75%, #D93025 100%);
+  border-color: #3367D6;
+}
+
+/* Facebook Button */
+.facebook-btn {
+  background: #1877F2;
+  border-color: #1877F2;
+}
+
+.facebook-btn:hover {
+  background: #166FE5;
+  border-color: #166FE5;
+}
+
+/* Microsoft Button */
+.microsoft-btn {
+  background: #00A4EF;
+  border-color: #00A4EF;
+}
+
+.microsoft-btn:hover {
+  background: #0078D4;
+  border-color: #0078D4;
+}
+
+.oauth-footer {
+  margin-top: 1.5rem;
+}
+
+.oauth-disclaimer {
+  color: #888;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .oauth-login {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .oauth-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .oauth-btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  
+  .oauth-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Loading State */
+.oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.oauth-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Animation for button press */
+.oauth-btn:active {
+  transform: scale(0.98);
+}
+
+/* Focus states for accessibility */
+.oauth-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+}
+
+.google-btn:focus {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+}
+
+.facebook-btn:focus {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+}
+
+.microsoft-btn:focus {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+}
+
+/* Account Selection Styles */
+.account-selection-notice {
+  color: #ff6b35;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid #ff6b35;
+}
+
+.account-selection-btn {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  border-color: #ff6b35;
+  font-size: 0.9rem;
+}
+
+.account-selection-btn:hover {
+  background: linear-gradient(135deg, #e55a2b 0%, #e0851a 100%);
+  border-color: #e55a2b;
+} 
