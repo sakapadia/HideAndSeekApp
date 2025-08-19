@@ -171,8 +171,21 @@ export const WhatScreen = ({
   noiseLevel = 5,
   description = ''
 }) => {
-  const popularCategories = ["Noise", "Traffic", "Construction", "Party", "Music"];
-  const suggestedCategories = ["Industrial", "Animals", "Events", "Sports"];
+  // Popular noise categories
+  const popularCategories = [
+    "Fireworks",
+    "Protests", 
+    "Sports",
+    "Construction"
+  ];
+
+  // Suggested categories (same as popular for now)
+  const suggestedCategories = [
+    "Fireworks",
+    "Protests",
+    "Sports", 
+    "Construction"
+  ];
   const recentSearches = ["Loud neighbors", "Street noise", "Construction site"];
 
   // Noise level suggestions based on category
@@ -324,15 +337,19 @@ export const WhatScreen = ({
  */
 export const WhereScreen = ({ 
   progress = 30,
-  selectedAddress = '',
+  streetAddress = '',
+  city = '',
+  zipCode = '',
   blastRadius = '',
-  onAddressChange,
+  onStreetAddressChange,
+  onCityChange,
+  onZipCodeChange,
   onBlastRadiusChange,
   onNext,
   onBack,
   onCancel
 }) => {
-  const canProceed = selectedAddress;
+  const canProceed = streetAddress && city && zipCode;
 
   return (
     <div className="screen where-screen">
@@ -343,11 +360,27 @@ export const WhereScreen = ({
         {/* Address Input Section */}
         <div className="where-address-section">
           <Input
-            id="address"
-            label="Address"
-            placeholder="Enter the address or location"
-            value={selectedAddress}
-            onChange={(e) => onAddressChange(e.target.value)}
+            id="streetAddress"
+            label="Street Address"
+            placeholder="Enter street name and number"
+            value={streetAddress}
+            onChange={(e) => onStreetAddressChange(e.target.value)}
+          />
+          
+          <Input
+            id="city"
+            label="City"
+            placeholder="Enter city name"
+            value={city}
+            onChange={(e) => onCityChange(e.target.value)}
+          />
+          
+          <Input
+            id="zipCode"
+            label="ZIP Code"
+            placeholder="Enter ZIP code"
+            value={zipCode}
+            onChange={(e) => onZipCodeChange(e.target.value)}
           />
           
           <RadioGroup

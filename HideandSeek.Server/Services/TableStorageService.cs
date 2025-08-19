@@ -109,7 +109,12 @@ public class TableStorageService : ITableStorageService
                                 NoiseLevel = report.NoiseLevel,
                                 ReportDate = report.ReportDate,
                                 Address = report.Address,
-                                ZipCode = report.PartitionKey
+                                StreetAddress = report.StreetAddress,
+                                City = report.City,
+                                ZipCode = report.PartitionKey,
+                                BlastRadius = report.BlastRadius,
+                                TimeOption = report.TimeOption,
+                                IsRecurring = report.IsRecurring
                             });
                             totalCount++;
                         }

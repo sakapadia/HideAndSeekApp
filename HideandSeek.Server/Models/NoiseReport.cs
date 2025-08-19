@@ -39,7 +39,7 @@ public class NoiseReport : ITableEntity
     /// </summary>
     public ETag ETag { get; set; }
 
-    // ===== Custom Business Properties =====
+    // ===== LOCATION FIELDS =====
 
     /// <summary>
     /// Geographic latitude coordinate of the noise incident.
@@ -54,16 +54,54 @@ public class NoiseReport : ITableEntity
     public double Longitude { get; set; }
 
     /// <summary>
+    /// Street name and number of the noise incident.
+    /// Part of the structured address.
+    /// </summary>
+    public string StreetAddress { get; set; } = string.Empty;
+
+    /// <summary>
+    /// City where the noise incident occurred.
+    /// Part of the structured address.
+    /// </summary>
+    public string City { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ZIP code where the noise incident occurred.
+    /// Part of the structured address and used as partition key.
+    /// </summary>
+    public string ZipCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Human-readable address of the noise incident (legacy field).
+    /// Provides context for location when coordinates aren't sufficient.
+    /// </summary>
+    public string Address { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Blast radius when exact location is unknown.
+    /// Values: "Small", "Medium", "Large".
+    /// </summary>
+    public string BlastRadius { get; set; } = string.Empty;
+
+    // ===== NOISE DETAILS =====
+
+    /// <summary>
     /// Detailed description of the noise complaint.
     /// Required field - provides context about the noise issue.
     /// </summary>
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// Category of noise (e.g., "Traffic", "Construction", "Music", "Party", "Industrial", "Other").
-    /// Used for filtering and categorization in the UI.
+    /// Primary category of noise from the 4 specific options.
+    /// Values: "Fireworks", "Protests", "Sports", "Construction".
     /// </summary>
     public string NoiseType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Array of selected noise categories from the frontend form.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// </summary>
+    public string Categories { get; set; } = string.Empty;
 
     /// <summary>
     /// Subjective noise level rating on a scale of 1-10.
@@ -92,12 +130,6 @@ public class NoiseReport : ITableEntity
     public DateTime ReportDate { get; set; }
 
     /// <summary>
-    /// Human-readable address of the noise incident (optional).
-    /// Provides context for location when coordinates aren't sufficient.
-    /// </summary>
-    public string Address { get; set; } = string.Empty;
-
-    /// <summary>
     /// Username of the user who submitted this report.
     /// Used for tracking user contributions and profile history.
     /// </summary>
@@ -109,25 +141,11 @@ public class NoiseReport : ITableEntity
     /// </summary>
     public int PointsAwarded { get; set; } = 10;
 
-    // ===== NEW FIELDS FROM REPORTING FLOW =====
-
-    /// <summary>
-    /// Array of selected noise categories from the frontend form.
-    /// Stored as JSON string for Azure Table Storage compatibility.
-    /// </summary>
-    public string Categories { get; set; } = string.Empty;
-
     /// <summary>
     /// Custom search text entered by the user.
     /// Used for AI-powered category matching.
     /// </summary>
     public string SearchValue { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Blast radius when exact location is unknown.
-    /// Values: "Small", "Medium", "Large".
-    /// </summary>
-    public string BlastRadius { get; set; } = string.Empty;
 
     /// <summary>
     /// Time option selected by the user.

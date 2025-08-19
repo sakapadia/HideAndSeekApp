@@ -371,6 +371,12 @@ function App() {
     setShowProfile(false);
   };
 
+  const refreshUserInfo = async () => {
+    if (userInfo.jwtToken) {
+      await validateToken(userInfo.jwtToken);
+    }
+  };
+
   // ===== RENDER BASED ON MODE =====
   // Gate the entire app behind authentication: show a dedicated login screen until logged in
   if (!userInfo.isLoggedIn) {
@@ -524,6 +530,7 @@ function App() {
             startAtMainMenu={true}
             onAppLogout={handleLogout}
             onProfileClick={handleProfileClick}
+            onUserUpdate={refreshUserInfo}
           />
         )}
         
@@ -560,6 +567,7 @@ function App() {
             userInfo={userInfo}
             onClose={handleProfileClose}
             onLogout={handleLogout}
+            onUserUpdate={refreshUserInfo}
           />
         )}
         
@@ -652,6 +660,7 @@ function App() {
           userInfo={userInfo}
           onClose={handleProfileClose}
           onLogout={handleLogout}
+          onUserUpdate={refreshUserInfo}
         />
       )}
 

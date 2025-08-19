@@ -117,8 +117,33 @@ public class NoiseReportDto
     public string Address { get; set; } = string.Empty;
 
     /// <summary>
+    /// Street address (street name and number) for detailed location information.
+    /// </summary>
+    public string StreetAddress { get; set; } = string.Empty;
+
+    /// <summary>
+    /// City where the noise incident occurred for detailed location information.
+    /// </summary>
+    public string City { get; set; } = string.Empty;
+
+    /// <summary>
     /// ZIP code where the noise incident occurred (PartitionKey from Azure Table Storage).
     /// Used for geographic grouping and filtering.
     /// </summary>
     public string ZipCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Blast radius when exact location is unknown.
+    /// </summary>
+    public string BlastRadius { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Time option when the noise occurred.
+    /// </summary>
+    public string TimeOption { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether this is a recurring noise issue.
+    /// </summary>
+    public bool IsRecurring { get; set; }
 } 

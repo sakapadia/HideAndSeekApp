@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
 using Microsoft.AspNetCore.Authorization; // Added for Authorize attribute
+using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace HideandSeek.Server.Controllers;
 
@@ -210,9 +212,44 @@ public class NoiseReportsController : ControllerBase
             }
 
             // Validate required geographic coordinates
-            if (reportRequest.Latitude == 0 || reportRequest.Longitude == 0)
+            // Allow 0,0 coordinates if we have an address to geocode
+            if ((reportRequest.Latitude == 0 || reportRequest.Longitude == 0) && 
+                string.IsNullOrEmpty(reportRequest.StreetAddress) && 
+                string.IsNullOrEmpty(reportRequest.City) && 
+                string.IsNullOrEmpty(reportRequest.ZipCode))
             {
-                return BadRequest("Latitude and longitude are required");
+                return BadRequest("Either coordinates or address information is required");
+            }
+
+            // Generate coordinates from address if not provided
+            double latitude = reportRequest.Latitude;
+            double longitude = reportRequest.Longitude;
+            
+            if (latitude == 0 && longitude == 0 && 
+                !string.IsNullOrEmpty(reportRequest.StreetAddress) && 
+                !string.IsNullOrEmpty(reportRequest.City) && 
+                !string.IsNullOrEmpty(reportRequest.ZipCode))
+            {
+                try
+                {
+                    // Build full address string for geocoding
+                    var fullAddress = $"{reportRequest.StreetAddress}, {reportRequest.City}, {reportRequest.ZipCode}";
+                    
+                    // For now, use a simple coordinate generation based on ZIP code
+                    // In production, you would use Google Maps Geocoding API or similar service
+                    var coordinates = await GenerateCoordinatesFromAddressAsync(fullAddress);
+                    latitude = coordinates.Latitude;
+                    longitude = coordinates.Longitude;
+                    
+                    _logger.LogInformation("Generated coordinates {Lat}, {Lon} from address: {Address}", 
+                        latitude, longitude, fullAddress);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate coordinates from address: {Address}", 
+                        $"{reportRequest.StreetAddress}, {reportRequest.City}, {reportRequest.ZipCode}");
+                    // Continue with 0,0 coordinates - the ZIP code will still work for partitioning
+                }
             }
 
             // Validate required description
@@ -232,10 +269,15 @@ public class NoiseReportsController : ControllerBase
             var report = new NoiseReport
             {
                 // Basic location and description
-                Latitude = reportRequest.Latitude,
-                Longitude = reportRequest.Longitude,
+                Latitude = latitude,
+                Longitude = longitude,
                 Description = reportRequest.Description,
-                Address = reportRequest.Address ?? string.Empty,
+                
+                // Structured address fields
+                StreetAddress = reportRequest.StreetAddress ?? string.Empty,
+                City = reportRequest.City ?? string.Empty,
+                ZipCode = reportRequest.ZipCode ?? string.Empty,
+                Address = reportRequest.Address ?? string.Empty, // Legacy field
                 
                 // User information
                 SubmittedBy = username,
@@ -286,8 +328,12 @@ public class NoiseReportsController : ControllerBase
                 report.SetMediaFilesList(reportRequest.MediaFiles);
             }
 
-            // Determine ZIP code from coordinates if not provided
-            if (string.IsNullOrEmpty(report.PartitionKey))
+            // Set partition key to ZIP code if provided, otherwise determine from coordinates
+            if (!string.IsNullOrEmpty(report.ZipCode))
+            {
+                report.PartitionKey = report.ZipCode;
+            }
+            else if (string.IsNullOrEmpty(report.PartitionKey))
             {
                 report.PartitionKey = await _tableStorageService.GetZipCodeFromCoordinatesAsync(
                     report.Latitude, report.Longitude);
@@ -385,5 +431,156 @@ public class NoiseReportsController : ControllerBase
                 minLat, maxLat, minLon, maxLon);
             return StatusCode(500, "An error occurred while retrieving ZIP codes");
         }
+    }
+
+    /// <summary>
+    /// GET /api/noisereports/my-reports
+    /// 
+    /// Retrieves all noise reports submitted by the authenticated user.
+    /// Used by the frontend to display user's report history.
+    /// </summary>
+    /// <returns>List of noise reports submitted by the current user</returns>
+    [HttpGet("my-reports")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult<List<NoiseReportDto>>> GetMyReports()
+    {
+        try
+        {
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized("User not authenticated");
+            }
+
+            // Get user from database to get their ID
+            var user = await _userService.GetUserByIdAsync(username);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            // Get user's reports
+            var reports = await _userService.GetUserReportsAsync(user.RowKey);
+            
+            // Convert to DTOs for frontend consumption
+            var reportDtos = reports.Select(report => new NoiseReportDto
+            {
+                Id = report.RowKey,
+                Latitude = report.Latitude,
+                Longitude = report.Longitude,
+                Description = report.Description,
+                NoiseType = report.NoiseType,
+                NoiseLevel = report.NoiseLevel,
+                ReportDate = report.ReportDate,
+                Address = report.Address,
+                StreetAddress = report.StreetAddress,
+                City = report.City,
+                ZipCode = report.PartitionKey,
+                BlastRadius = report.BlastRadius,
+                TimeOption = report.TimeOption,
+                IsRecurring = report.IsRecurring
+            }).ToList();
+
+            return Ok(reportDtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving reports for user: {Username}", User.Identity?.Name);
+            return StatusCode(500, "An error occurred while retrieving your reports");
+        }
+    }
+
+    /// <summary>
+    /// DELETE /api/noisereports/{reportId}
+    /// 
+    /// Deletes a noise report submitted by the authenticated user.
+    /// Used by the frontend to allow users to remove their reports.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to delete</param>
+    /// <returns>Success message if report was deleted</returns>
+    [HttpDelete("{reportId}")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult> DeleteMyReport(string reportId)
+    {
+        try
+        {
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized("User not authenticated");
+            }
+
+            // Get user from database to get their ID
+            var user = await _userService.GetUserByIdAsync(username);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            // Delete the report (this will also deduct points)
+            var success = await _userService.DeleteUserReportAsync(user.RowKey, reportId);
+            if (!success)
+            {
+                return BadRequest("Report not found or you don't have permission to delete it");
+            }
+
+            return Ok(new { message = "Report deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting report {ReportId} for user: {Username}", 
+                reportId, User.Identity?.Name);
+            return StatusCode(500, "An error occurred while deleting the report");
+        }
+    }
+
+    /// <summary>
+    /// Generates coordinates from an address string.
+    /// 
+    /// NOTE: This is a simplified demo implementation that generates coordinates
+    /// based on the ZIP code. In production, you would use:
+    /// 1. Google Maps Geocoding API
+    /// 2. USPS ZIP code database
+    /// 3. Commercial geocoding services
+    /// </summary>
+    /// <param name="address">Full address string</param>
+    /// <returns>Coordinates for the address</returns>
+    private async Task<(double Latitude, double Longitude)> GenerateCoordinatesFromAddressAsync(string address)
+    {
+        // DEMO IMPLEMENTATION - NOT FOR PRODUCTION USE
+        // 
+        // In a real application, you would:
+        // 1. Use Google Maps Geocoding API:
+        //    https://developers.google.com/maps/documentation/geocoding/requests-geocoding
+        // 
+        // 2. Use a ZIP code database with geographic centers:
+        //    - USPS ZIP code database
+        //    - Open-source ZIP code data
+        //    - Commercial geocoding services
+        // 
+        // 3. Implement proper error handling for:
+        //    - Invalid addresses
+        //    - Addresses outside supported regions
+        //    - API rate limits and failures
+        
+        // Extract ZIP code from address for demo coordinate generation
+        var zipCodeMatch = System.Text.RegularExpressions.Regex.Match(address, @"\b\d{5}\b");
+        if (zipCodeMatch.Success)
+        {
+            var zipCode = zipCodeMatch.Value;
+            
+            // Generate demo coordinates based on ZIP code
+            // This is NOT accurate and should be replaced with real geocoding
+            var zipInt = int.Parse(zipCode);
+            var lat = 40.0 + (zipInt % 1000) / 10000.0; // Demo latitude around 40°N
+            var lon = -74.0 + (zipInt % 1000) / 10000.0; // Demo longitude around 74°W
+            
+            return (lat, lon);
+        }
+        
+        // Fallback to default coordinates if no ZIP code found
+        return (40.7128, -74.0060); // New York City coordinates
     }
 } 

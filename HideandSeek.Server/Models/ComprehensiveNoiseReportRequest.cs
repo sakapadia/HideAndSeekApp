@@ -21,7 +21,25 @@ public class ComprehensiveNoiseReportRequest
     public double Longitude { get; set; }
 
     /// <summary>
-    /// Human-readable address of the noise incident.
+    /// Street name and number of the noise incident.
+    /// Part of the structured address.
+    /// </summary>
+    public string? StreetAddress { get; set; }
+
+    /// <summary>
+    /// City where the noise incident occurred.
+    /// Part of the structured address.
+    /// </summary>
+    public string? City { get; set; }
+
+    /// <summary>
+    /// ZIP code where the noise incident occurred.
+    /// Part of the structured address.
+    /// </summary>
+    public string? ZipCode { get; set; }
+
+    /// <summary>
+    /// Human-readable address of the noise incident (legacy field).
     /// Optional but provides context for location.
     /// </summary>
     public string? Address { get; set; }
@@ -41,8 +59,8 @@ public class ComprehensiveNoiseReportRequest
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// Primary category of noise (e.g., "Traffic", "Construction", "Music").
-    /// Used for basic filtering and categorization.
+    /// Primary category of noise from the 4 specific options.
+    /// Values: "Fireworks", "Protests", "Sports", "Construction".
     /// </summary>
     public string? NoiseType { get; set; }
 

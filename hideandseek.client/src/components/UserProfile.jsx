@@ -61,7 +61,11 @@ export const UserProfile = ({
 
   const fetchUserReports = async () => {
     try {
-      const response = await fetch(`/api/users/${userInfo.userId}/reports`);
+      const response = await fetch('/api/noisereports/my-reports', {
+        headers: {
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
       if (response.ok) {
         const reports = await response.json();
         setUserReports(reports);
@@ -82,15 +86,23 @@ export const UserProfile = ({
     }
 
     try {
-      const response = await fetch(`/api/users/${userInfo.userId}/reports/${reportId}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/noisereports/${reportId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
       });
 
       if (response.ok) {
         // Remove the report from the list
-        setUserReports(prev => prev.filter(report => report.rowKey !== reportId));
+        setUserReports(prev => prev.filter(report => report.id !== reportId));
         // Refresh user profile to update points
         fetchUserProfile();
+        // Refresh user info in parent component to update points display
+        if (onUserUpdate) {
+          onUserUpdate();
+        }
+        alert('Report deleted successfully!');
       } else {
         const errorData = await response.json();
         alert(`Failed to delete report: ${errorData.message || 'Unknown error'}`);

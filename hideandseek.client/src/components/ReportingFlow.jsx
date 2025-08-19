@@ -33,7 +33,7 @@ const SCREENS = {
  * Main reporting flow component that manages the multi-step process.
  * Handles navigation between screens and maintains state for the entire flow.
  */
-export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick }) => {
+export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick, onUserUpdate }) => {
   // ===== STATE MANAGEMENT =====
   
   // Current screen and navigation
@@ -65,7 +65,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     noiseLevel: 5,
     
     // Where screen data
-    selectedAddress: '',
+    streetAddress: '',
+    city: '',
+    zipCode: '',
     location: '',
     blastRadius: '',
     
@@ -254,11 +256,27 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
   // ===== WHERE SCREEN HANDLERS =====
   
-  const handleAddressChange = (address) => {
+  const handleStreetAddressChange = (address) => {
     setReportData(prev => ({
       ...prev,
-      selectedAddress: address,
-      location: address // Store for review screen
+      streetAddress: address,
+      location: `${address}, ${prev.city}, ${prev.zipCode}`.trim() // Build full address for review screen
+    }));
+  };
+
+  const handleCityChange = (city) => {
+    setReportData(prev => ({
+      ...prev,
+      city: city,
+      location: `${prev.streetAddress}, ${city}, ${prev.zipCode}`.trim() // Build full address for review screen
+    }));
+  };
+
+  const handleZipCodeChange = (zipCode) => {
+    setReportData(prev => ({
+      ...prev,
+      zipCode: zipCode,
+      location: `${prev.streetAddress}, ${prev.city}, ${zipCode}`.trim() // Build full address for review screen
     }));
   };
 
@@ -410,7 +428,10 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       // Location data
       latitude: latitude,
       longitude: longitude,
-      address: reportData.selectedAddress || reportData.location || '',
+      streetAddress: reportData.streetAddress || '',
+      city: reportData.city || '',
+      zipCode: reportData.zipCode || '',
+      address: reportData.location || '', // Legacy field for backward compatibility
       blastRadius: reportData.blastRadius || '',
       
       // Noise details
@@ -434,8 +455,16 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     };
 
     // Validate required fields
-    if (!reportSubmission.address.trim()) {
-      throw new Error('Address is required. Please enter the location where the noise is occurring.');
+    if (!reportSubmission.streetAddress.trim()) {
+      throw new Error('Street address is required. Please enter the street name and number.');
+    }
+    
+    if (!reportSubmission.city.trim()) {
+      throw new Error('City is required. Please enter the city name.');
+    }
+    
+    if (!reportSubmission.zipCode.trim()) {
+      throw new Error('ZIP code is required. Please enter the ZIP code.');
     }
     
     if (!reportSubmission.description.trim()) {
@@ -460,6 +489,11 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     const result = await response.json();
     console.log('Report submitted successfully:', result);
     
+    // Refresh user info to update points display
+    if (onUserUpdate) {
+      onUserUpdate();
+    }
+    
     return result;
   };
 
@@ -471,7 +505,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
-      selectedAddress: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
       location: '',
       blastRadius: '',
       timeOption: 'NOW',
@@ -528,7 +564,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
-      selectedAddress: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
       location: '',
       blastRadius: '',
       timeOption: 'NOW',
@@ -600,9 +638,13 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
         return (
           <WhereScreen
             progress={30}
-            selectedAddress={reportData.selectedAddress}
+            streetAddress={reportData.streetAddress}
+            city={reportData.city}
+            zipCode={reportData.zipCode}
             blastRadius={reportData.blastRadius}
-            onAddressChange={handleAddressChange}
+            onStreetAddressChange={handleStreetAddressChange}
+            onCityChange={handleCityChange}
+            onZipCodeChange={handleZipCodeChange}
             onBlastRadiusChange={handleBlastRadiusChange}
             onNext={goToNext}
             onBack={goToPrevious}

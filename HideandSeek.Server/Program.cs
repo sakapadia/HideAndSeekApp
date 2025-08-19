@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using HideandSeek.Server.Services;
 using Azure.Data.Tables;
 
@@ -9,6 +12,7 @@ using Azure.Data.Tables;
 // - Service registration and dependency injection
 // - Middleware pipeline configuration
 // - CORS policy for frontend communication
+// - JWT authentication configuration
 // - API documentation with Swagger
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +32,29 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+// Add JWT Authentication
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ?? "your-super-secret-key-with-at-least-32-characters";
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "HideandSeek";
+var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "HideandSeekUsers";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+        };
+    });
+
+// Add Authorization
+builder.Services.AddAuthorization();
 
 // Add HttpClient for OAuth services
 builder.Services.AddHttpClient();
@@ -52,6 +79,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.UseAuthentication(); // Add this line
 app.UseAuthorization();
 app.MapControllers();
 
