@@ -14,12 +14,13 @@ public interface IUserService
     Task<User?> GetUserByOAuthAsync(string provider, string providerId);
     Task<User> CreateOAuthUserAsync(OAuthUserInfo oauthInfo, string accessToken, string? refreshToken = null);
     Task<User> UpdateOAuthUserAsync(User user);
-    Task<List<NoiseReport>> GetUserReportsAsync(string userId);
-    Task<bool> DeleteUserReportAsync(string userId, string reportRowKey);
-    Task<int> AwardPointsAsync(string userId, int points);
-    Task<bool> DeleteUserAsync(string userId);
+    Task<List<NoiseReport>> GetUserReportsAsync(string username);
+    Task<bool> DeleteUserReportAsync(string username, string reportRowKey);
+    Task<int> AwardPointsAsync(string username, int points);
+    Task<bool> DeleteUserAsync(string username);
     Task<List<User>> GetAllUsersAsync();
     Task<User?> GetUserByIdAsync(string userId);
+    Task<User?> GetUserByUsernameAsync(string username);
     Task<User> UpdateUserLastLoginAsync(string userId);
 }
 
@@ -143,6 +144,32 @@ public class UserService : IUserService
     }
 
     /// <summary>
+    /// Retrieves a user by their username (DisplayName or CustomUsername).
+    /// </summary>
+    public async Task<User?> GetUserByUsernameAsync(string username)
+    {
+        try
+        {
+            // Query for users with matching DisplayName or CustomUsername
+            var query = _userTableClient.QueryAsync<User>(u => 
+                u.PartitionKey == "Users" && 
+                (u.DisplayName == username || u.CustomUsername == username));
+            
+            await foreach (var user in query)
+            {
+                return user; // Return first match
+            }
+            
+            return null; // No user found
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by username: {Username}", username);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Updates the last login date for a user.
     /// </summary>
     public async Task<User> UpdateUserLastLoginAsync(string userId)
@@ -169,13 +196,13 @@ public class UserService : IUserService
     /// <summary>
     /// Retrieves all reports submitted by a specific user.
     /// </summary>
-    public async Task<List<NoiseReport>> GetUserReportsAsync(string userId)
+    public async Task<List<NoiseReport>> GetUserReportsAsync(string username)
     {
         try
         {
             var reports = new List<NoiseReport>();
             var query = _noiseReportTableClient.QueryAsync<NoiseReport>(
-                filter: $"SubmittedBy eq '{userId}'"
+                filter: $"SubmittedBy eq '{username}'"
             );
 
             await foreach (var report in query)
@@ -187,7 +214,7 @@ public class UserService : IUserService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving reports for user: {UserId}", userId);
+            _logger.LogError(ex, "Error retrieving reports for user: {Username}", username);
             throw;
         }
     }
@@ -195,29 +222,36 @@ public class UserService : IUserService
     /// <summary>
     /// Deletes a specific report submitted by a user.
     /// </summary>
-    public async Task<bool> DeleteUserReportAsync(string userId, string reportRowKey)
+    public async Task<bool> DeleteUserReportAsync(string username, string reportRowKey)
     {
         try
         {
-            // First, verify the report belongs to the user
-            var report = await _noiseReportTableClient.GetEntityAsync<NoiseReport>(
-                partitionKey: "NoiseReports", 
-                rowKey: reportRowKey
+            // First, find the report by querying across all partitions since we don't know the partition key
+            var reports = new List<NoiseReport>();
+            var query = _noiseReportTableClient.QueryAsync<NoiseReport>(
+                filter: $"RowKey eq '{reportRowKey}' and SubmittedBy eq '{username}'"
             );
 
-            if (report.Value.SubmittedBy != userId)
+            await foreach (var report in query)
             {
-                return false; // User doesn't own this report
+                reports.Add(report);
             }
 
-            // Delete the report
-            await _noiseReportTableClient.DeleteEntityAsync("NoiseReports", reportRowKey);
+            if (reports.Count == 0)
+            {
+                return false; // Report not found or user doesn't own it
+            }
+
+            var reportToDelete = reports.First();
+
+            // Delete the report using the correct partition key (ZIP code)
+            await _noiseReportTableClient.DeleteEntityAsync(reportToDelete.PartitionKey, reportRowKey);
 
             // Deduct points from user
-            var user = await GetUserByIdAsync(userId);
+            var user = await GetUserByUsernameAsync(username);
             if (user != null)
             {
-                user.Points = Math.Max(0, user.Points - report.Value.PointsAwarded);
+                user.Points = Math.Max(0, user.Points - reportToDelete.PointsAwarded);
                 await UpdateOAuthUserAsync(user);
             }
 
@@ -225,8 +259,8 @@ public class UserService : IUserService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting report for user: {UserId}, Report: {ReportRowKey}", 
-                userId, reportRowKey);
+            _logger.LogError(ex, "Error deleting report for user: {Username}, Report: {ReportRowKey}", 
+                username, reportRowKey);
             return false;
         }
     }
@@ -234,14 +268,14 @@ public class UserService : IUserService
     /// <summary>
     /// Awards points to a user and updates their total.
     /// </summary>
-    public async Task<int> AwardPointsAsync(string userId, int points)
+    public async Task<int> AwardPointsAsync(string username, int points)
     {
         try
         {
-            var user = await GetUserByIdAsync(userId);
+            var user = await GetUserByUsernameAsync(username);
             if (user == null)
             {
-                throw new InvalidOperationException("User not found");
+                throw new InvalidOperationException($"User not found with username: {username}");
             }
 
             user.Points += points;
@@ -250,8 +284,8 @@ public class UserService : IUserService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error awarding points to user: {UserId}, Points: {Points}", 
-                userId, points);
+            _logger.LogError(ex, "Error awarding points to user: {Username}, Points: {Points}", 
+                username, points);
             throw;
         }
     }
@@ -259,24 +293,30 @@ public class UserService : IUserService
     /// <summary>
     /// Deletes a user account and all associated data.
     /// </summary>
-    public async Task<bool> DeleteUserAsync(string userId)
+    public async Task<bool> DeleteUserAsync(string username)
     {
         try
         {
             // Delete all reports by this user
-            var userReports = await GetUserReportsAsync(userId);
+            var userReports = await GetUserReportsAsync(username);
             foreach (var report in userReports)
             {
                 await _noiseReportTableClient.DeleteEntityAsync(report.PartitionKey, report.RowKey);
             }
 
-            // Delete the user account
-            await _userTableClient.DeleteEntityAsync("Users", userId);
+            // Get the user to find their RowKey
+            var user = await GetUserByUsernameAsync(username);
+            if (user != null)
+            {
+                // Delete the user account
+                await _userTableClient.DeleteEntityAsync("Users", user.RowKey);
+            }
+            
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting user: {UserId}", userId);
+            _logger.LogError(ex, "Error deleting user: {Username}", username);
             return false;
         }
     }

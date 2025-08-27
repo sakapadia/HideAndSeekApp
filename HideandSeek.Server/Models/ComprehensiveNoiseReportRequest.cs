@@ -33,6 +33,12 @@ public class ComprehensiveNoiseReportRequest
     public string? City { get; set; }
 
     /// <summary>
+    /// State where the noise incident occurred.
+    /// Part of the structured address for better geocoding accuracy.
+    /// </summary>
+    public string? State { get; set; }
+
+    /// <summary>
     /// ZIP code where the noise incident occurred.
     /// Part of the structured address.
     /// </summary>

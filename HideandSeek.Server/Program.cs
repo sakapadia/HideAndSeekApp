@@ -65,6 +65,9 @@ builder.Services.AddScoped<ITableStorageService, TableStorageService>();
 builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 
+// Add geocoding service
+builder.Services.AddScoped<IGeocodingService, GoogleMapsGeocodingService>();
+
 var app = builder.Build();
 
 // Initialize Azure Tables

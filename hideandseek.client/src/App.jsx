@@ -53,6 +53,54 @@ function App() {
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [persistentMap, setPersistentMap] = useState(null);
 
+  // ===== REFS =====
+  const mapRef = React.useRef(null);
+  const markersRef = React.useRef([]);
+  const persistentMapMarkersRef = React.useRef([]);
+  const updateIntervalRef = React.useRef(null);
+
+  // ===== UTILITY FUNCTIONS =====
+  const getNoiseLevelColor = (level) => {
+    if (level <= 3) return '#4CAF50'; // Green for low noise
+    if (level <= 6) return '#FF9800'; // Orange for medium noise
+    return '#F44336'; // Red for high noise
+  };
+
+  // Function to create translucent red circles based on blast radius
+  const createBlastRadiusCircle = (mapInstance, position, blastRadius) => {
+    if (!blastRadius || blastRadius === '') return null;
+    
+    // Define circle sizes based on blast radius
+    let radiusInMeters;
+    switch (blastRadius.toLowerCase()) {
+      case 'small':
+        radiusInMeters = 100; // 100 meters
+        break;
+      case 'medium':
+        radiusInMeters = 250; // 250 meters
+        break;
+      case 'large':
+        radiusInMeters = 500; // 500 meters
+        break;
+      default:
+        return null; // No circle for unknown blast radius
+    }
+    
+    // Create translucent red circle
+    const circle = new google.maps.Circle({
+      strokeColor: '#FF0000',
+      strokeOpacity: 0.3,
+      strokeWeight: 2,
+      fillColor: '#FF0000',
+      fillOpacity: 0.1,
+      map: mapInstance,
+      center: position,
+      radius: radiusInMeters
+    });
+    
+    return circle;
+  };
+
   // ===== OAuth Token Handling =====
   useEffect(() => {
     
@@ -176,7 +224,7 @@ function App() {
         if (persistentContainer && !persistentMap) {
           console.log('Persistent map container found, initializing map...');
           const persistentMapInstance = new google.maps.Map(persistentContainer, {
-            center: { lat: 40.7128, lng: -74.0060 }, // New York City
+            center: { lat: 47.6062, lng: -122.3321 }, // Seattle
             zoom: 10,
             mapTypeId: google.maps.MapTypeId.ROADMAP,
             disableDefaultUI: true, // Hide default controls
@@ -199,6 +247,52 @@ function App() {
           });
           setPersistentMap(persistentMapInstance);
           console.log('Persistent map initialized successfully');
+          
+          // Automatically center on user location
+          if (navigator.geolocation) {
+            console.log('📍 Requesting user location for auto-centering...');
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                const userLocation = { lat: latitude, lng: longitude };
+                
+                console.log('📍 User location detected:', userLocation);
+                persistentMapInstance.setCenter(userLocation);
+                persistentMapInstance.setZoom(14);
+                
+                // Add user location marker
+                const userMarker = new google.maps.Marker({
+                  position: userLocation,
+                  map: persistentMapInstance,
+                  title: 'Your Location',
+                  icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+                        <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                      </svg>
+                    `),
+                    scaledSize: new google.maps.Size(24, 24)
+                  }
+                });
+                persistentMapMarkersRef.current.push(userMarker);
+                console.log('✅ User location marker added');
+                
+                // Now add noise report markers around user location
+                addNoiseReportMarkersToMap(persistentMapInstance);
+              },
+              (error) => {
+                console.warn('📍 Could not get user location, using default center:', error);
+                // Fallback: add noise report markers around default center
+                addNoiseReportMarkersToMap(persistentMapInstance);
+              },
+              { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+            );
+          } else {
+            console.warn('📍 Geolocation not supported, using default center');
+            // Fallback: add noise report markers around default center
+            addNoiseReportMarkersToMap(persistentMapInstance);
+          }
         }
       };
 
@@ -277,13 +371,192 @@ function App() {
             errorMessage += 'Location request timed out.';
             break;
           default:
-            errorMessage += 'Please try again.';
+            errorMessage += 'An unknown error occurred.';
+            break;
         }
         
         setError(errorMessage);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 7000, maximumAge: 300000 }
     );
+  };
+
+  // Function to add noise report markers to any map instance
+  const addNoiseReportMarkersToMap = async (mapInstance) => {
+    try {
+      console.log('Adding noise report markers to map instance:', mapInstance === persistentMap ? 'PERSISTENT MAP' : 'OTHER MAP');
+      
+      // Get current map bounds or use default bounds around current center
+      let bounds;
+      if (mapInstance.getBounds()) {
+        // Use current map bounds
+        bounds = mapInstance.getBounds();
+      } else {
+        // Fallback: create bounds around current map center
+        const center = mapInstance.getCenter();
+        const lat = center.lat();
+        const lng = center.lng();
+        bounds = {
+          getNorthEast: () => ({ lat: () => lat + 0.1, lng: () => lng + 0.1 }),
+          getSouthWest: () => ({ lat: () => lat - 0.1, lng: () => lng - 0.1 })
+        };
+      }
+      
+      await fetchNoiseReportsWithBoundsForMap(bounds, mapInstance);
+      
+    } catch (error) {
+      console.error('Error adding noise report markers to map:', error);
+    }
+  };
+
+  // Function to fetch and display noise reports for a specific map instance
+  const fetchNoiseReportsWithBoundsForMap = async (bounds, mapInstance) => {
+    try {
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      
+      console.log('Fetching reports for map instance bounds:', {
+        minLat: sw.lat(),
+        maxLat: ne.lat(),
+        minLon: sw.lng(),
+        maxLon: ne.lng()
+      });
+
+      // Get ZIP codes for the current bounds
+      const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
+        minLat: sw.lat(),
+        maxLat: ne.lat(),
+        minLon: sw.lng(),
+        maxLon: ne.lng()
+      }));
+
+      if (!zipCodesResponse.ok) {
+        throw new Error(`ZIP codes API failed: ${zipCodesResponse.status}`);
+      }
+
+      const zipCodes = (await zipCodesResponse.json()).join(',');
+      console.log('ZIP codes found for map instance:', zipCodes);
+
+      // Fetch noise reports
+      const response = await fetch('/api/noisereports?' + new URLSearchParams({
+        minLat: sw.lat(),
+        maxLat: ne.lat(),
+        minLon: sw.lng(),
+        maxLon: ne.lng(),
+        zipCodes: zipCodes
+      }));
+
+      if (!response.ok) {
+        throw new Error(`Noise reports API failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Noise reports data received for map instance:', data);
+
+      if (!data.reports || data.reports.length === 0) {
+        console.log('No reports found for map instance in the current bounds');
+        return;
+      }
+
+      let markersCreated = 0;
+      let markersSkipped = 0;
+
+              // Add new markers to the specified map instance
+      data.reports.forEach(report => {
+        // Ensure we have valid coordinates for the marker
+        let markerPosition = null;
+        
+        if (report.latitude && report.longitude && 
+            report.latitude !== 0 && report.longitude !== 0) {
+          // Use provided coordinates
+          markerPosition = { lat: report.latitude, lng: report.longitude };
+          console.log('Using coordinates for map instance:', markerPosition);
+        } else if (report.streetAddress && report.city && report.state && report.zipCode) {
+          // If no coordinates but we have address, skip for now
+          console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
+          markersSkipped++;
+          return;
+        } else {
+          // Skip reports with no location information
+          console.warn(`Report ${report.id} has no valid location information`);
+          markersSkipped++;
+          return;
+        }
+
+        const marker = new google.maps.Marker({
+          position: markerPosition,
+          map: mapInstance,
+          title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(24, 24)
+          }
+        });
+
+        // Build address display string
+        let addressDisplay = 'No address provided';
+        if (report.streetAddress && report.city && report.state && report.zipCode) {
+          addressDisplay = `${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`;
+        } else if (report.address || report.Address) {
+          addressDisplay = report.address || report.Address;
+        } else if (report.latitude && report.longitude) {
+          addressDisplay = `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`;
+        }
+
+        // Add info window with enhanced content
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="padding: 10px; max-width: 250px;">
+              <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
+              ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
+              ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+              ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+            </div>
+          `
+        });
+
+        marker.addListener('click', () => {
+          infoWindow.open(mapInstance, marker);
+        });
+
+        // Create blast radius circle if blast radius is specified
+        const blastRadius = report.blastRadius || report.BlastRadius;
+        if (blastRadius) {
+          const circle = createBlastRadiusCircle(mapInstance, markerPosition, blastRadius);
+          if (circle && mapInstance === persistentMap) {
+            // Store circle reference for cleanup if needed
+            persistentMapMarkersRef.current.push(circle);
+          }
+        }
+        
+        // Store marker in persistentMapMarkersRef if this is the persistent map
+        if (mapInstance === persistentMap) {
+          persistentMapMarkersRef.current.push(marker);
+        }
+        
+        markersCreated++;
+        console.log('Marker created for map instance report:', report.id);
+      });
+
+      console.log(`Map instance markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total reports: ${data.reports.length}`);
+      
+      if (markersSkipped > 0) {
+        console.warn(`${markersSkipped} reports were skipped for map instance due to missing location information`);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching noise reports for map instance:', error);
+      throw error;
+    }
   };
 
   // ===== USER STATE MANAGEMENT =====
@@ -443,6 +716,56 @@ function App() {
               </div>
             )}
           </div>
+          
+          {/* Blast Radius Legend for Persistent Map */}
+          {mapsLoaded && (
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              padding: '15px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+              fontSize: '12px',
+              zIndex: 1000
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Blast Radius</div>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                  border: '1px solid rgba(255, 0, 0, 0.3)',
+                  marginRight: '6px'
+                }}></div>
+                <span>Small</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                  border: '1px solid rgba(255, 0, 0, 0.3)',
+                  marginRight: '6px'
+                }}></div>
+                <span>Medium</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                  border: '1px solid rgba(255, 0, 0, 0.3)',
+                  marginRight: '6px'
+                }}></div>
+                <span>Large</span>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* User Display - Show when user is logged in */}
@@ -651,6 +974,10 @@ function App() {
           setError={setError}
           error={error}
           setCurrentMode={setCurrentMode}
+          mapRef={mapRef}
+          markersRef={markersRef}
+          persistentMapMarkersRef={persistentMapMarkersRef}
+          updateIntervalRef={updateIntervalRef}
         />
       )}
       
@@ -687,16 +1014,15 @@ function App() {
  * Original map interface component.
  * This is the previous implementation with Google Maps integration.
  */
-function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode }) {
+function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode, mapRef, markersRef, persistentMapMarkersRef, updateIntervalRef }) {
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [noiseReports, setNoiseReports] = useState([]);
   const [showReportForm, setShowReportForm] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loading, setLoading] = useState(true);
-  const mapRef = React.useRef(null);
-  const markersRef = React.useRef([]);
-  const updateIntervalRef = React.useRef(null);
+  const [markersLoading, setMarkersLoading] = useState(false);
+  // Refs are now defined in the main App component
 
   // Google Maps state is now handled in the main App component
   // No need to duplicate the initialization here
@@ -709,7 +1035,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       console.log('Map container styles:', window.getComputedStyle(mapRef.current));
       
       const mapInstance = new google.maps.Map(mapRef.current, {
-        center: { lat: 40.7128, lng: -74.0060 }, // New York City
+        center: { lat: 47.6062, lng: -122.3321 }, // Seattle
         zoom: 10,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false, // Show default controls for main map
@@ -737,6 +1063,21 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       // Start periodic updates
       startPeriodicUpdates(mapInstance);
       
+      // Add bounds changed listener to refresh markers when map is moved
+      mapInstance.addListener('bounds_changed', () => {
+        // Debounce the bounds change to avoid too many API calls
+        clearTimeout(updateIntervalRef.current);
+        updateIntervalRef.current = setTimeout(() => {
+          fetchNoiseReports(mapInstance);
+        }, 1000); // Wait 1 second after user stops moving the map
+      });
+      
+      // Initial fetch with a delay to ensure map is fully loaded
+      setTimeout(() => {
+        console.log('Initial fetch of noise reports after map load delay');
+        fetchNoiseReports(mapInstance);
+      }, 2000);
+      
       console.log('Map initialized successfully in MapInterface');
       
       // Debug map size after initialization
@@ -759,11 +1100,45 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   const fetchNoiseReports = async (mapInstance) => {
     try {
+      setMarkersLoading(true);
+      console.log('Fetching noise reports...');
+      
       const bounds = mapInstance.getBounds();
-      if (!bounds) return;
+      if (!bounds) {
+        console.log('Map bounds not available yet, using default bounds');
+        // Use bounds around current map center if map bounds are not available yet
+        const center = mapInstance.getCenter();
+        const lat = center.lat();
+        const lng = center.lng();
+        const defaultBounds = {
+          getNorthEast: () => ({ lat: () => lat + 0.1, lng: () => lng + 0.1 }),
+          getSouthWest: () => ({ lat: () => lat - 0.1, lng: () => lng - 0.1 })
+        };
+        await fetchNoiseReportsWithBounds(defaultBounds, mapInstance);
+        return;
+      }
 
+      await fetchNoiseReportsWithBounds(bounds, mapInstance);
+      
+    } catch (error) {
+      console.error('Error in fetchNoiseReports:', error);
+      setError('Failed to load noise reports. Please try again.');
+    } finally {
+      setMarkersLoading(false);
+    }
+  };
+
+  const fetchNoiseReportsWithBounds = async (bounds, mapInstance = persistentMap) => {
+    try {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
+      
+      console.log('Fetching reports for bounds:', {
+        minLat: sw.lat(),
+        maxLat: ne.lat(),
+        minLon: sw.lng(),
+        maxLon: ne.lng()
+      });
 
       // Get ZIP codes for the current bounds
       const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
@@ -773,7 +1148,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         maxLon: ne.lng()
       }));
 
+      if (!zipCodesResponse.ok) {
+        throw new Error(`ZIP codes API failed: ${zipCodesResponse.status}`);
+      }
+
       const zipCodes = (await zipCodesResponse.json()).join(',');
+      console.log('ZIP codes found:', zipCodes);
 
       // Fetch noise reports
       const response = await fetch('/api/noisereports?' + new URLSearchParams({
@@ -784,38 +1164,90 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         zipCodes: zipCodes
       }));
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Noise reports API failed: ${response.status}`);
+      }
 
-      // Clear existing markers
-      markersRef.current.forEach(marker => marker.setMap(null));
+      const data = await response.json();
+      
+      // Clear existing markers and circles
+      markersRef.current.forEach(item => {
+        if (item.setMap) {
+          item.setMap(null);
+        }
+      });
       markersRef.current = [];
+
+      let markersCreated = 0;
+      let markersSkipped = 0;
+
+      if (!data.reports || data.reports.length === 0) {
+        console.log('No reports found in the current bounds');
+        setNoiseReports([]);
+        return;
+      }
 
       // Add new markers
       data.reports.forEach(report => {
+        // Ensure we have valid coordinates for the marker
+        // Handle both PascalCase (Latitude, Longitude) and camelCase (latitude, longitude)
+        let markerPosition = null;
+        
+        const lat = report.latitude || report.Latitude;
+        const lng = report.longitude || report.Longitude;
+        
+        if (lat && lng && lat !== 0 && lng !== 0) {
+          // Use provided coordinates
+          markerPosition = { lat: lat, lng: lng };
+        } else if (report.streetAddress && report.city && report.state && report.zipCode) {
+          // If no coordinates but we have address, skip for now
+          console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
+          markersSkipped++;
+          return;
+        } else {
+          // Skip reports with no location information
+          console.warn(`Report ${report.id} has no valid location information`);
+          markersSkipped++;
+          return;
+        }
+
         const marker = new google.maps.Marker({
-          position: { lat: report.latitude, lng: report.longitude },
+          position: markerPosition,
           map: mapInstance,
-          title: `${report.noiseType}: ${report.description}`,
+          title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
           icon: {
             url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="${getNoiseLevelColor(report.noiseLevel)}" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel}</text>
+                <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
               </svg>
             `),
             scaledSize: new google.maps.Size(24, 24)
           }
         });
 
-        // Add info window
+        // Build address display string
+        let addressDisplay = 'No address provided';
+        if (report.streetAddress && report.city && report.state && report.zipCode) {
+          addressDisplay = `${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`;
+        } else if (report.address || report.Address) {
+          addressDisplay = report.address || report.Address;
+        } else if (lat && lng) {
+          addressDisplay = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+
+        // Add info window with enhanced content
         const infoWindow = new google.maps.InfoWindow({
           content: `
-            <div style="padding: 10px; max-width: 200px;">
-              <h3 style="margin: 0 0 5px 0; color: #333;">${report.noiseType}</h3>
-              <p style="margin: 5px 0; color: #666;">${report.description}</p>
-              <p style="margin: 5px 0; color: #666;">Noise Level: ${report.noiseLevel}/10</p>
-              <p style="margin: 5px 0; color: #666;">Reported: ${new Date(report.reportDate).toLocaleDateString()}</p>
-              <p style="margin: 5px 0; color: #666;">Address: ${report.address}</p>
+            <div style="padding: 10px; max-width: 250px;">
+              <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
+              ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
+              ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+              ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
             </div>
           `
         });
@@ -824,12 +1256,33 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           infoWindow.open(mapInstance, marker);
         });
 
+        // Create blast radius circle if blast radius is specified
+        const blastRadius = report.blastRadius || report.BlastRadius;
+        if (blastRadius) {
+          const circle = createBlastRadiusCircle(mapInstance, markerPosition, blastRadius);
+          if (circle) {
+            // Store circle reference for cleanup
+            markersRef.current.push(circle);
+          }
+        }
+
         markersRef.current.push(marker);
+        markersCreated++;
+        console.log('Marker created for report:', report.id);
       });
 
       setNoiseReports(data.reports);
+      
+      // Log marker creation summary
+      console.log(`Markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total reports: ${data.reports.length}`);
+      
+      if (markersSkipped > 0) {
+        console.warn(`${markersSkipped} reports were skipped due to missing location information`);
+      }
+      
     } catch (error) {
-      console.error('Error fetching noise reports:', error);
+      console.error('Error fetching noise reports with bounds:', error);
+      throw error;
     }
   };
 
@@ -860,18 +1313,16 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     );
   };
 
-  const getNoiseLevelColor = (level) => {
-    if (level <= 3) return '#4CAF50'; // Green for low noise
-    if (level <= 6) return '#FF9800'; // Orange for medium noise
-    return '#F44336'; // Red for high noise
-  };
+  // getNoiseLevelColor is now defined in the main App component
 
   const handleMapClick = (event) => {
-    setSelectedLocation({
-      lat: event.latLng.lat(),
-      lng: event.latLng.lng()
-    });
-    setShowReportForm(true);
+    if (event && event.latLng) {
+      setSelectedLocation({
+        lat: event.latLng.lat(),
+        lng: event.latLng.lng()
+      });
+      setShowReportForm(true);
+    }
   };
 
   const handleSubmitReport = async (reportData) => {
@@ -962,15 +1413,30 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
         <div className="map-controls">
           <button 
-            className="report-button"
             onClick={centerOnUser}
-            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', marginBottom: '0.5rem' }}
+            className="map-control-btn"
+            title="Center on My Location"
           >
-            Center on Me
+            📍 Center on Me
           </button>
+          <button 
+            onClick={() => {
+              if (map) {
+                fetchNoiseReports(map);
+              }
+            }}
+            className="map-control-btn"
+            title="Refresh Reports"
+          >
+            🔄 Refresh Reports
+          </button>
+        </div>
+        
+        <div className="report-section">
           <button 
             className="report-button"
             onClick={() => setShowReportForm(true)}
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', marginBottom: '0.5rem' }}
           >
             Report Noise
           </button>
@@ -988,6 +1454,45 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#F44336' }}></span>
               <span>High (7-10)</span>
+            </div>
+            
+            <h4 style={{ marginTop: '15px', marginBottom: '8px' }}>Blast Radius Legend</h4>
+            <div className="legend-item">
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                borderRadius: '50%', 
+                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                border: '2px solid rgba(255, 0, 0, 0.3)',
+                display: 'inline-block',
+                marginRight: '8px'
+              }}></div>
+              <span>Small (100m)</span>
+            </div>
+            <div className="legend-item">
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                borderRadius: '50%', 
+                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                border: '2px solid rgba(255, 0, 0, 0.3)',
+                display: 'inline-block',
+                marginRight: '8px'
+              }}></div>
+              <span>Medium (250m)</span>
+            </div>
+            <div className="legend-item">
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                borderRadius: '50%', 
+                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                border: '2px solid rgba(255, 0, 0, 0.3)',
+                display: 'inline-block',
+                marginRight: '8px',
+                transform: 'scale(1.2)'
+              }}></div>
+              <span>Large (500m)</span>
             </div>
           </div>
         </div>

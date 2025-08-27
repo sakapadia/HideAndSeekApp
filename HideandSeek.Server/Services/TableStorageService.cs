@@ -31,6 +31,14 @@ public interface ITableStorageService
     /// <param name="longitude">Geographic longitude</param>
     /// <returns>ZIP code string for the given coordinates</returns>
     Task<string> GetZipCodeFromCoordinatesAsync(double latitude, double longitude);
+
+    /// <summary>
+    /// Gets all ZIP codes from existing noise reports within specified bounds.
+    /// This ensures we only query ZIP codes where we actually have data.
+    /// </summary>
+    /// <param name="bounds">Geographic bounds to search within</param>
+    /// <returns>List of ZIP codes that have noise reports in the specified bounds</returns>
+    Task<List<string>> GetZipCodesFromReportsAsync(MapBounds bounds);
 }
 
 /// <summary>
@@ -206,5 +214,61 @@ public class TableStorageService : ITableStorageService
         var zipCode = Math.Abs(latInt + lonInt) % 99999;
         
         return zipCode.ToString("D5");
+    }
+
+    /// <summary>
+    /// Gets all ZIP codes from existing noise reports within specified bounds.
+    /// This ensures we only query ZIP codes where we actually have data.
+    /// </summary>
+    /// <param name="bounds">Geographic bounds to search within</param>
+    /// <returns>List of ZIP codes that have noise reports in the specified bounds</returns>
+    public async Task<List<string>> GetZipCodesFromReportsAsync(MapBounds bounds)
+    {
+        var zipCodes = new HashSet<string>(); // Use HashSet to avoid duplicates
+        var totalReports = 0;
+        var reportsInBounds = 0;
+
+        try
+        {
+            // Query all noise reports in the table (since we need to find ZIP codes)
+            // In a production environment, you might want to maintain a separate ZIP code index
+            var query = _tableClient.QueryAsync<NoiseReport>();
+            
+            await foreach (var report in query)
+            {
+                totalReports++;
+                
+                // Log some sample reports to see what's in the database
+                if (totalReports <= 5)
+                {
+                    _logger.LogInformation("Sample report {ReportNum}: Lat={Lat}, Lon={Lon}, ZIP={Zip}, Address={Address}", 
+                        totalReports, report.Latitude, report.Longitude, report.PartitionKey, report.StreetAddress);
+                }
+                
+                // Check if the report is within the specified bounds
+                if (report.Latitude >= bounds.MinLatitude && 
+                    report.Latitude <= bounds.MaxLatitude &&
+                    report.Longitude >= bounds.MinLongitude && 
+                    report.Longitude <= bounds.MaxLongitude)
+                {
+                    reportsInBounds++;
+                    // Add the ZIP code from this report
+                    if (!string.IsNullOrEmpty(report.PartitionKey))
+                    {
+                        zipCodes.Add(report.PartitionKey);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Database contains {TotalReports} total reports, {ReportsInBounds} reports in bounds, {ZipCodeCount} unique ZIP codes in bounds: {Bounds}", 
+                totalReports, reportsInBounds, zipCodes.Count, bounds);
+            
+            return zipCodes.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving ZIP codes from reports for bounds: {Bounds}", bounds);
+            throw;
+        }
     }
 } 

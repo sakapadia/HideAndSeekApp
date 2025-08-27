@@ -146,4 +146,9 @@ public class NoiseReportDto
     /// Whether this is a recurring noise issue.
     /// </summary>
     public bool IsRecurring { get; set; }
+
+    /// <summary>
+    /// Number of points awarded for this report.
+    /// </summary>
+    public int PointsAwarded { get; set; }
 } 

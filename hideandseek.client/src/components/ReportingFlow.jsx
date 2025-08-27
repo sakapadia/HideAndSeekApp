@@ -67,6 +67,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     // Where screen data
     streetAddress: '',
     city: '',
+    state: 'WA', // Default to Washington
     zipCode: '',
     location: '',
     blastRadius: '',
@@ -260,7 +261,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     setReportData(prev => ({
       ...prev,
       streetAddress: address,
-      location: `${address}, ${prev.city}, ${prev.zipCode}`.trim() // Build full address for review screen
+      location: `${address}, ${prev.city}, ${prev.state} ${prev.zipCode}`.trim() // Build full address for review screen
     }));
   };
 
@@ -268,7 +269,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     setReportData(prev => ({
       ...prev,
       city: city,
-      location: `${prev.streetAddress}, ${city}, ${prev.zipCode}`.trim() // Build full address for review screen
+      location: `${prev.streetAddress}, ${city}, ${prev.state} ${prev.zipCode}`.trim() // Build full address for review screen
+    }));
+  };
+
+  const handleStateChange = (state) => {
+    setReportData(prev => ({
+      ...prev,
+      state: state,
+      location: `${prev.streetAddress}, ${prev.city}, ${state} ${prev.zipCode}`.trim() // Build full address for review screen
     }));
   };
 
@@ -276,7 +285,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     setReportData(prev => ({
       ...prev,
       zipCode: zipCode,
-      location: `${prev.streetAddress}, ${prev.city}, ${zipCode}`.trim() // Build full address for review screen
+      location: `${prev.streetAddress}, ${prev.city}, ${prev.state} ${zipCode}`.trim() // Build full address for review screen
     }));
   };
 
@@ -640,10 +649,12 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
             progress={30}
             streetAddress={reportData.streetAddress}
             city={reportData.city}
+            state={reportData.state}
             zipCode={reportData.zipCode}
             blastRadius={reportData.blastRadius}
             onStreetAddressChange={handleStreetAddressChange}
             onCityChange={handleCityChange}
+            onStateChange={handleStateChange}
             onZipCodeChange={handleZipCodeChange}
             onBlastRadiusChange={handleBlastRadiusChange}
             onNext={goToNext}

@@ -363,7 +363,7 @@ export const UserProfile = ({
             ) : (
               <div className="reports-list">
                 {userReports.map((report) => (
-                  <div key={report.rowKey} className="report-card">
+                  <div key={report.id} className="report-card">
                     <div className="report-header">
                       <div className="report-meta">
                         <span className="report-date">{formatDate(report.reportDate)}</span>
@@ -376,7 +376,7 @@ export const UserProfile = ({
                       </div>
                       <Button 
                         text="Delete" 
-                        onClick={() => handleDeleteReport(report.rowKey)}
+                        onClick={() => handleDeleteReport(report.id)}
                         className="btn-danger"
                       />
                     </div>

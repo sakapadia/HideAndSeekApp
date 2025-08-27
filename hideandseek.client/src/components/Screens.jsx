@@ -339,17 +339,19 @@ export const WhereScreen = ({
   progress = 30,
   streetAddress = '',
   city = '',
+  state = '',
   zipCode = '',
   blastRadius = '',
   onStreetAddressChange,
   onCityChange,
+  onStateChange,
   onZipCodeChange,
   onBlastRadiusChange,
   onNext,
   onBack,
   onCancel
 }) => {
-  const canProceed = streetAddress && city && zipCode;
+  const canProceed = streetAddress && city && state && zipCode;
 
   return (
     <div className="screen where-screen">
@@ -373,6 +375,14 @@ export const WhereScreen = ({
             placeholder="Enter city name"
             value={city}
             onChange={(e) => onCityChange(e.target.value)}
+          />
+          
+          <Input
+            id="state"
+            label="State"
+            placeholder="WA"
+            value={state}
+            onChange={(e) => onStateChange(e.target.value)}
           />
           
           <Input
