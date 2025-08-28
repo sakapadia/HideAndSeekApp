@@ -374,11 +374,13 @@ export const UserProfile = ({
                           Level {report.noiseLevel}
                         </span>
                       </div>
-                      <Button 
-                        text="Delete" 
+                      <button 
                         onClick={() => handleDeleteReport(report.id)}
-                        className="btn-danger"
-                      />
+                        className="delete-report-btn"
+                        title="Delete Report"
+                      >
+                        🗑️
+                      </button>
                     </div>
                     <div className="report-content">
                       <div className="report-type">{report.noiseType}</div>

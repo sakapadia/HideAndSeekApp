@@ -14,6 +14,42 @@ import { UserDisplay } from './components/UIComponents';
 // Docs: https://vitejs.dev/guide/env-and-mode.html
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
 
+// ===== UTILITY FUNCTIONS =====
+// Function to create translucent red circles based on blast radius
+const createBlastRadiusCircle = (mapInstance, position, blastRadius) => {
+  if (!blastRadius || blastRadius === '') return null;
+  
+  // Define circle sizes based on blast radius
+  let radiusInMeters;
+  switch (blastRadius.toLowerCase()) {
+    case 'small':
+      radiusInMeters = 100; // 100 meters
+      break;
+    case 'medium':
+      radiusInMeters = 250; // 250 meters
+      break;
+    case 'large':
+      radiusInMeters = 500; // 500 meters
+      break;
+    default:
+      return null; // No circle for unknown blast radius
+  }
+  
+  // Create translucent red circle
+  const circle = new google.maps.Circle({
+    strokeColor: '#FF0000',
+    strokeOpacity: 0.3,
+    strokeWeight: 2,
+    fillColor: '#FF0000',
+    fillOpacity: 0.1,
+    map: mapInstance,
+    center: position,
+    radius: radiusInMeters
+  });
+  
+  return circle;
+};
+
 /**
  * Main application component.
  * 
@@ -64,41 +100,6 @@ function App() {
     if (level <= 3) return '#4CAF50'; // Green for low noise
     if (level <= 6) return '#FF9800'; // Orange for medium noise
     return '#F44336'; // Red for high noise
-  };
-
-  // Function to create translucent red circles based on blast radius
-  const createBlastRadiusCircle = (mapInstance, position, blastRadius) => {
-    if (!blastRadius || blastRadius === '') return null;
-    
-    // Define circle sizes based on blast radius
-    let radiusInMeters;
-    switch (blastRadius.toLowerCase()) {
-      case 'small':
-        radiusInMeters = 100; // 100 meters
-        break;
-      case 'medium':
-        radiusInMeters = 250; // 250 meters
-        break;
-      case 'large':
-        radiusInMeters = 500; // 500 meters
-        break;
-      default:
-        return null; // No circle for unknown blast radius
-    }
-    
-    // Create translucent red circle
-    const circle = new google.maps.Circle({
-      strokeColor: '#FF0000',
-      strokeOpacity: 0.3,
-      strokeWeight: 2,
-      fillColor: '#FF0000',
-      fillOpacity: 0.1,
-      map: mapInstance,
-      center: position,
-      radius: radiusInMeters
-    });
-    
-    return circle;
   };
 
   // ===== OAuth Token Handling =====
@@ -303,10 +304,12 @@ function App() {
 
   // ===== MODE SWITCHING =====
   const switchToMapMode = () => {
+    console.log('Switching to map mode');
     setCurrentMode('map');
   };
 
   const switchToMainMenu = () => {
+    console.log('Switching to main menu');
     setCurrentMode('mainMenu');
   };
 
@@ -1026,15 +1029,79 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   // Google Maps state is now handled in the main App component
   // No need to duplicate the initialization here
+  
+  // Debug component lifecycle
+  useEffect(() => {
+    console.log('MapInterface component mounted');
+    return () => {
+      console.log('MapInterface component unmounting');
+    };
+  }, []);
 
   // Initialize the map when mapsLoaded becomes true
   useEffect(() => {
+    console.log('MapInterface useEffect triggered:', { mapsLoaded, mapRefCurrent: !!mapRef.current, map: !!map });
+    
+    // If we already have a map, don't reinitialize
+    if (map) {
+      console.log('Map already exists, skipping initialization');
+      return;
+    }
+    
     if (mapsLoaded && mapRef.current && !map) {
       console.log('Initializing map in MapInterface...');
       console.log('Map container dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
       console.log('Map container styles:', window.getComputedStyle(mapRef.current));
+      console.log('Map container in DOM:', document.contains(mapRef.current));
       
-      const mapInstance = new google.maps.Map(mapRef.current, {
+      // Check if container has proper dimensions
+      if (mapRef.current.offsetWidth === 0 || mapRef.current.offsetHeight === 0) {
+        console.log('Map container has no dimensions, waiting...');
+        // Wait a bit for the container to get proper dimensions
+        setTimeout(() => {
+          if (mapRef.current && !map) {
+            console.log('Retrying map initialization after delay...');
+            // This will trigger the useEffect again
+          }
+        }, 100);
+        return;
+      }
+      
+      // Check if container is visible
+      const computedStyle = window.getComputedStyle(mapRef.current);
+      if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
+        console.log('Map container is not visible, waiting...');
+        setTimeout(() => {
+          if (mapRef.current && !map) {
+            console.log('Retrying map initialization after visibility check...');
+          }
+        }, 100);
+        return;
+      }
+      
+      // Force container to have proper dimensions if needed
+      if (mapRef.current.offsetWidth < 100 || mapRef.current.offsetHeight < 100) {
+        console.log('Forcing container dimensions...');
+        mapRef.current.style.width = '100vw';
+        mapRef.current.style.height = '100vh';
+        // Wait a bit for the styles to take effect
+        setTimeout(() => {
+          if (mapRef.current && !map) {
+            console.log('Retrying map initialization after forcing dimensions...');
+          }
+        }, 100);
+        return;
+      }
+      
+      try {
+        // Check if Google Maps API is available
+        if (typeof google === 'undefined' || !google.maps) {
+          console.error('Google Maps API not available');
+          setError('Google Maps API not loaded. Please refresh the page.');
+          return;
+        }
+        
+        const mapInstance = new google.maps.Map(mapRef.current, {
         center: { lat: 47.6062, lng: -122.3321 }, // Seattle
         zoom: 10,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
@@ -1060,33 +1127,55 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       setMap(mapInstance);
       setLoading(false);
       
-      // Start periodic updates
-      startPeriodicUpdates(mapInstance);
-      
       // Add bounds changed listener to refresh markers when map is moved
       mapInstance.addListener('bounds_changed', () => {
         // Debounce the bounds change to avoid too many API calls
         clearTimeout(updateIntervalRef.current);
         updateIntervalRef.current = setTimeout(() => {
-          fetchNoiseReports(mapInstance);
+          try {
+            fetchNoiseReports(mapInstance);
+          } catch (error) {
+            console.error('Error in bounds_changed listener:', error);
+          }
         }, 1000); // Wait 1 second after user stops moving the map
       });
       
       // Initial fetch with a delay to ensure map is fully loaded
       setTimeout(() => {
         console.log('Initial fetch of noise reports after map load delay');
-        fetchNoiseReports(mapInstance);
+        try {
+          fetchNoiseReports(mapInstance);
+        } catch (error) {
+          console.error('Error in initial fetch:', error);
+        }
       }, 2000);
       
-      console.log('Map initialized successfully in MapInterface');
-      
-      // Debug map size after initialization
-      setTimeout(() => {
-        console.log('Map instance bounds:', mapInstance.getBounds());
-        console.log('Map container final dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
-      }, 1000);
+        console.log('Map initialized successfully in MapInterface');
+        
+        // Debug map size after initialization
+        setTimeout(() => {
+          console.log('Map instance bounds:', mapInstance.getBounds());
+          console.log('Map container final dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
+        }, 1000);
+      } catch (error) {
+        console.error('Error initializing map in MapInterface:', error);
+        setError('Failed to initialize map. Please try again.');
+        setLoading(false);
+      }
     }
-  }, [mapsLoaded]); // Remove 'map' from dependencies to prevent circular updates
+    
+    // Cleanup function
+    return () => {
+      if (map) {
+        console.log('Cleaning up map instance');
+        // Clear any intervals or listeners
+        if (updateIntervalRef.current) {
+          clearInterval(updateIntervalRef.current);
+          updateIntervalRef.current = null;
+        }
+      }
+    };
+  }, [mapsLoaded, mapRef.current, map]); // Add mapRef.current to ensure container is available
 
   const startPeriodicUpdates = (mapInstance) => {
     // Update noise reports every 15 minutes
@@ -1100,6 +1189,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   const fetchNoiseReports = async (mapInstance) => {
     try {
+      if (!mapInstance) {
+        console.error('Map instance is null or undefined');
+        return;
+      }
+      
       setMarkersLoading(true);
       console.log('Fetching noise reports...');
       
@@ -1108,6 +1202,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         console.log('Map bounds not available yet, using default bounds');
         // Use bounds around current map center if map bounds are not available yet
         const center = mapInstance.getCenter();
+        if (!center) {
+          console.error('Map center is not available');
+          return;
+        }
         const lat = center.lat();
         const lng = center.lng();
         const defaultBounds = {
@@ -1128,7 +1226,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }
   };
 
-  const fetchNoiseReportsWithBounds = async (bounds, mapInstance = persistentMap) => {
+  const fetchNoiseReportsWithBounds = async (bounds, mapInstance) => {
     try {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
@@ -1367,7 +1465,19 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       </header>
       
       <div className="map-container fullscreen">
-        <div ref={mapRef} className="map" onClick={handleMapClick} style={{ width: '100%', height: '100vh' }}></div>
+        <div 
+          ref={(el) => {
+            mapRef.current = el;
+            if (el) {
+              console.log('Map container ref set:', el);
+              console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
+            }
+          }}
+          className="map" 
+          onClick={handleMapClick} 
+          style={{ width: '100%', height: '100vh' }}
+          data-testid="map-container"
+        ></div>
         
         {/* Overlays for loading/error */}
         {loading && (
@@ -1422,7 +1532,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           <button 
             onClick={() => {
               if (map) {
-                fetchNoiseReports(map);
+                try {
+                  fetchNoiseReports(map);
+                } catch (error) {
+                  console.error('Error refreshing reports:', error);
+                  setError('Failed to refresh reports. Please try again.');
+                }
               }
             }}
             className="map-control-btn"
