@@ -39,6 +39,20 @@ public interface ITableStorageService
     /// <param name="bounds">Geographic bounds to search within</param>
     /// <returns>List of ZIP codes that have noise reports in the specified bounds</returns>
     Task<List<string>> GetZipCodesFromReportsAsync(MapBounds bounds);
+
+    /// <summary>
+    /// Gets a specific noise report by its RowKey.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to retrieve</param>
+    /// <returns>The noise report if found, null otherwise</returns>
+    Task<NoiseReport?> GetNoiseReportAsync(string reportId);
+
+    /// <summary>
+    /// Updates an existing noise report in Azure Table Storage.
+    /// </summary>
+    /// <param name="report">The noise report to update</param>
+    /// <returns>The updated report</returns>
+    Task<NoiseReport> UpdateNoiseReportAsync(NoiseReport report);
 }
 
 /// <summary>
@@ -268,6 +282,55 @@ public class TableStorageService : ITableStorageService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving ZIP codes from reports for bounds: {Bounds}", bounds);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets a specific noise report by its RowKey.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to retrieve</param>
+    /// <returns>The noise report if found, null otherwise</returns>
+    public async Task<NoiseReport?> GetNoiseReportAsync(string reportId)
+    {
+        try
+        {
+            // We need to search across all partitions since we only have the RowKey
+            // In a production environment, you might want to maintain a separate index
+            var query = _tableClient.QueryAsync<NoiseReport>(filter: $"RowKey eq '{reportId}'");
+            
+            await foreach (var report in query)
+            {
+                return report; // Return the first match (RowKey should be unique)
+            }
+            
+            return null; // Report not found
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving noise report with ID: {ReportId}", reportId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing noise report in Azure Table Storage.
+    /// </summary>
+    /// <param name="report">The noise report to update</param>
+    /// <returns>The updated report</returns>
+    public async Task<NoiseReport> UpdateNoiseReportAsync(NoiseReport report)
+    {
+        try
+        {
+            await _tableClient.UpdateEntityAsync(report, report.ETag);
+            _logger.LogInformation("Updated noise report {ReportId} in partition {PartitionKey}", 
+                report.RowKey, report.PartitionKey);
+            return report;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating noise report {ReportId} in partition {PartitionKey}", 
+                report.RowKey, report.PartitionKey);
             throw;
         }
     }

@@ -531,5 +531,123 @@ public class NoiseReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// POST /api/noisereports/{reportId}/upvote
+    /// 
+    /// Upvotes a noise report. Users can only upvote a report once.
+    /// Used by the frontend when users click the thumbs up button on a report.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to upvote</param>
+    /// <returns>Updated upvote count and whether the user has upvoted</returns>
+    [HttpPost("{reportId}/upvote")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult<UpvoteResponse>> UpvoteReport(string reportId)
+    {
+        try
+        {
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            // Get the report from storage
+            var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+            if (report == null)
+            {
+                return NotFound(new { message = "Report not found" });
+            }
+
+            // Check if user has already upvoted
+            if (report.HasUserUpvoted(username))
+            {
+                return Ok(new UpvoteResponse
+                {
+                    Upvotes = report.Upvotes,
+                    HasUserUpvoted = true,
+                    Message = "You have already upvoted this report"
+                });
+            }
+
+            // Add upvote
+            var upvoteAdded = report.AddUpvote(username);
+            if (!upvoteAdded)
+            {
+                return BadRequest(new { message = "Failed to add upvote" });
+            }
+
+            // Update the report in storage
+            await _tableStorageService.UpdateNoiseReportAsync(report);
+
+            _logger.LogInformation("User {Username} upvoted report {ReportId}. New upvote count: {Upvotes}", 
+                username, reportId, report.Upvotes);
+
+            return Ok(new UpvoteResponse
+            {
+                Upvotes = report.Upvotes,
+                HasUserUpvoted = true,
+                Message = "Upvote added successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upvoting report {ReportId} for user: {Username}", reportId, User.Identity?.Name);
+            return StatusCode(500, new { message = "An error occurred while upvoting the report" });
+        }
+    }
+
+    /// <summary>
+    /// GET /api/noisereports/{reportId}/upvote-status
+    /// 
+    /// Gets the upvote status for a specific report and user.
+    /// Used by the frontend to determine if the user has already upvoted a report.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to check</param>
+    /// <returns>Upvote count and whether the user has upvoted</returns>
+    [HttpGet("{reportId}/upvote-status")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult<UpvoteResponse>> GetUpvoteStatus(string reportId)
+    {
+        try
+        {
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            // Get the report from storage
+            var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+            if (report == null)
+            {
+                return NotFound(new { message = "Report not found" });
+            }
+
+            return Ok(new UpvoteResponse
+            {
+                Upvotes = report.Upvotes,
+                HasUserUpvoted = report.HasUserUpvoted(username),
+                Message = "Upvote status retrieved successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting upvote status for report {ReportId} for user: {Username}", reportId, User.Identity?.Name);
+            return StatusCode(500, new { message = "An error occurred while getting upvote status" });
+        }
+    }
+
 
 } 

@@ -512,6 +512,10 @@ function App() {
         }
 
         // Add info window with enhanced content
+        const reportId = report.id || report.Id || report.rowKey || report.RowKey;
+        const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
+        const hasUpvoted = upvotedReports.has(reportId);
+        
         const infoWindow = new google.maps.InfoWindow({
           content: `
             <div style="padding: 10px; max-width: 250px;">
@@ -523,12 +527,38 @@ function App() {
               ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
               ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
               ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+                <button 
+                  id="upvote-btn-${reportId}" 
+                  onclick="window.upvoteReport('${reportId}')"
+                  style="
+                    background: ${hasUpvoted ? '#ccc' : '#667eea'};
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
+                    font-size: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    transition: background 0.2s;
+                  "
+                  ${hasUpvoted ? 'disabled' : ''}
+                >
+                  👍 ${upvoteCount}
+                </button>
+              </div>
             </div>
           `
         });
 
         marker.addListener('click', () => {
           infoWindow.open(mapInstance, marker);
+          // Check upvote status when info window opens
+          if (reportId) {
+            checkUpvoteStatus(reportId);
+          }
         });
 
         // Create blast radius circle if blast radius is specified
@@ -860,32 +890,7 @@ function App() {
           />
         )}
         
-        {/* Full Screen Map Overlay */}
-        <div className={`fullscreen-map-overlay ${false ? 'active' : ''}`}>
-          <button 
-            className="close-map-btn"
-            onClick={() => {}}
-          >
-            ✕ Close Map
-          </button>
-          <div className="map-container">
-            <div className="map-content">
-              <div className="map-background">
-                <div className="map-grid"></div>
-              </div>
-              <div className="map-address-info">
-                <div className="address-label">🗺️ Full Screen Map</div>
-                <div className="coordinates-label">
-                  Click anywhere to select coordinates
-                </div>
-              </div>
-              <div className="map-click-instructions">
-                <p>🗺️ Full Screen Map View</p>
-                <p>📍 Click anywhere on the map to select coordinates</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
         
         {/* User Profile Modal */}
         {showProfile && (
@@ -1025,10 +1030,37 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markersLoading, setMarkersLoading] = useState(false);
+  
+  // Filter state
+  const [filters, setFilters] = useState({
+    categories: [], // Array of selected categories
+    minNoiseLevel: 1,
+    maxNoiseLevel: 10,
+    city: '',
+    zipCode: '',
+    showFilters: false
+  });
+
+  // Upvote state - track which reports the user has upvoted
+  const [upvotedReports, setUpvotedReports] = useState(new Set());
+  const [reportUpvotes, setReportUpvotes] = useState(new Map()); // reportId -> upvote count
+  
   // Refs are now defined in the main App component
 
   // Google Maps state is now handled in the main App component
   // No need to duplicate the initialization here
+  
+  // Use ref to store current filters to avoid closure issues
+  const filtersRef = React.useRef(filters);
+  filtersRef.current = filters;
+
+  // Make upvote function available globally for info window buttons
+  React.useEffect(() => {
+    window.upvoteReport = handleUpvote;
+    return () => {
+      delete window.upvoteReport;
+    };
+  }, [userInfo.jwtToken]);
   
   // Debug component lifecycle
   useEffect(() => {
@@ -1037,6 +1069,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       console.log('MapInterface component unmounting');
     };
   }, []);
+
+  // Refresh map when filters change
+  useEffect(() => {
+    if (map) {
+      console.log('Filters changed, refreshing map markers with filters:', filters);
+      fetchNoiseReports(map);
+    }
+  }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, map]);
 
   // Initialize the map when mapsLoaded becomes true
   useEffect(() => {
@@ -1133,6 +1173,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         clearTimeout(updateIntervalRef.current);
         updateIntervalRef.current = setTimeout(() => {
           try {
+            console.log('Bounds changed, refreshing with current filters:', filtersRef.current);
             fetchNoiseReports(mapInstance);
           } catch (error) {
             console.error('Error in bounds_changed listener:', error);
@@ -1226,6 +1267,127 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }
   };
 
+  // Filter functions
+  const applyFilters = (reports, currentFilters = filtersRef.current) => {
+    console.log('Applying filters:', currentFilters);
+    return reports.filter(report => {
+      // Category filter
+      if (currentFilters.categories.length > 0) {
+        const reportCategory = report.noiseType || report.NoiseType;
+        if (!currentFilters.categories.includes(reportCategory)) {
+          return false;
+        }
+      }
+      
+      // Noise level filter
+      const reportNoiseLevel = report.noiseLevel || report.NoiseLevel;
+      if (reportNoiseLevel < currentFilters.minNoiseLevel || reportNoiseLevel > currentFilters.maxNoiseLevel) {
+        return false;
+      }
+      
+      // City filter
+      if (currentFilters.city && currentFilters.city.trim() !== '') {
+        const reportCity = report.city || report.City;
+        if (!reportCity || !reportCity.toLowerCase().includes(currentFilters.city.toLowerCase())) {
+          return false;
+        }
+      }
+      
+      // ZIP code filter
+      if (currentFilters.zipCode && currentFilters.zipCode.trim() !== '') {
+        const reportZipCode = report.zipCode || report.ZipCode;
+        if (!reportZipCode || !reportZipCode.includes(currentFilters.zipCode)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const toggleCategory = (category) => {
+    setFilters(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category]
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      categories: [],
+      minNoiseLevel: 1,
+      maxNoiseLevel: 10,
+      city: '',
+      zipCode: '',
+      showFilters: false
+    });
+  };
+
+  // Upvote functions
+  const handleUpvote = async (reportId) => {
+    try {
+      console.log('Upvoting report:', reportId);
+      
+      const response = await fetch(`/api/noisereports/${reportId}/upvote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upvote report');
+      }
+
+      const upvoteData = await response.json();
+      console.log('Upvote response:', upvoteData);
+
+      // Update local state
+      setUpvotedReports(prev => new Set([...prev, reportId]));
+      setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
+
+      // Show success message
+      console.log('Successfully upvoted report!');
+      
+    } catch (error) {
+      console.error('Error upvoting report:', error);
+      setError(`Failed to upvote report: ${error.message}`);
+    }
+  };
+
+  const checkUpvoteStatus = async (reportId) => {
+    try {
+      const response = await fetch(`/api/noisereports/${reportId}/upvote-status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
+
+      if (response.ok) {
+        const upvoteData = await response.json();
+        setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
+        if (upvoteData.hasUserUpvoted) {
+          setUpvotedReports(prev => new Set([...prev, reportId]));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking upvote status:', error);
+    }
+  };
+
   const fetchNoiseReportsWithBounds = async (bounds, mapInstance) => {
     try {
       const ne = bounds.getNorthEast();
@@ -1268,6 +1430,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       const data = await response.json();
       
+      // Apply filters to the data
+      console.log('Raw reports from API:', data.reports?.length || 0);
+      console.log('Current filters being applied:', filtersRef.current);
+      const filteredReports = applyFilters(data.reports || [], filtersRef.current);
+      console.log(`Filtered ${data.reports?.length || 0} reports to ${filteredReports.length} based on current filters`);
+      
       // Clear existing markers and circles
       markersRef.current.forEach(item => {
         if (item.setMap) {
@@ -1279,14 +1447,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       let markersCreated = 0;
       let markersSkipped = 0;
 
-      if (!data.reports || data.reports.length === 0) {
-        console.log('No reports found in the current bounds');
+      if (!filteredReports || filteredReports.length === 0) {
+        console.log('No reports found in the current bounds after filtering');
         setNoiseReports([]);
         return;
       }
 
       // Add new markers
-      data.reports.forEach(report => {
+      filteredReports.forEach(report => {
         // Ensure we have valid coordinates for the marker
         // Handle both PascalCase (Latitude, Longitude) and camelCase (latitude, longitude)
         let markerPosition = null;
@@ -1335,6 +1503,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         }
 
         // Add info window with enhanced content
+        const reportId = report.id || report.Id || report.rowKey || report.RowKey;
+        const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
+        const hasUpvoted = upvotedReports.has(reportId);
+        
         const infoWindow = new google.maps.InfoWindow({
           content: `
             <div style="padding: 10px; max-width: 250px;">
@@ -1346,12 +1518,38 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
               ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
               ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+                <button 
+                  id="upvote-btn-${reportId}" 
+                  onclick="window.upvoteReport('${reportId}')"
+                  style="
+                    background: ${hasUpvoted ? '#ccc' : '#667eea'};
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
+                    font-size: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    transition: background 0.2s;
+                  "
+                  ${hasUpvoted ? 'disabled' : ''}
+                >
+                  👍 ${upvoteCount}
+                </button>
+              </div>
             </div>
           `
         });
 
         marker.addListener('click', () => {
           infoWindow.open(mapInstance, marker);
+          // Check upvote status when info window opens
+          if (reportId) {
+            checkUpvoteStatus(reportId);
+          }
         });
 
         // Create blast radius circle if blast radius is specified
@@ -1369,10 +1567,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         console.log('Marker created for report:', report.id);
       });
 
-      setNoiseReports(data.reports);
+      setNoiseReports(filteredReports);
       
       // Log marker creation summary
-      console.log(`Markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total reports: ${data.reports.length}`);
+      console.log(`Markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total filtered reports: ${filteredReports.length}`);
       
       if (markersSkipped > 0) {
         console.warn(`${markersSkipped} reports were skipped due to missing location information`);
@@ -1545,17 +1743,135 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           >
             🔄 Refresh Reports
           </button>
-        </div>
-        
-        <div className="report-section">
           <button 
-            className="report-button"
-            onClick={() => setShowReportForm(true)}
-            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', marginBottom: '0.5rem' }}
+            onClick={() => handleFilterChange('showFilters', !filters.showFilters)}
+            className="map-control-btn"
+            title="Toggle Filters"
           >
-            Report Noise
+            🔍 {filters.showFilters ? 'Hide' : 'Show'} Filters
           </button>
-          
+        </div>
+
+        {/* Filter Panel */}
+        {filters.showFilters && (
+          <div className="filter-panel">
+            <div className="filter-header">
+              <h3>Filter Reports</h3>
+              <button 
+                onClick={clearFilters}
+                className="clear-filters-btn"
+                title="Clear All Filters"
+              >
+                Clear All
+              </button>
+            </div>
+            
+            {/* Category Filter */}
+            <div className="filter-section">
+              <h4>Noise Categories</h4>
+              <div className="category-filters">
+                {['Traffic', 'Construction', 'Music', 'Party', 'Industrial', 'Other'].map(category => (
+                  <label key={category} className="category-filter-item">
+                    <input
+                      type="checkbox"
+                      checked={filters.categories.includes(category)}
+                      onChange={() => toggleCategory(category)}
+                    />
+                    <span>{category}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Noise Level Filter */}
+            <div className="filter-section">
+              <h4>Noise Level Range</h4>
+              <div className="noise-level-filters">
+                <div className="range-input">
+                  <label>Min: {filters.minNoiseLevel}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={filters.minNoiseLevel}
+                    onChange={(e) => handleFilterChange('minNoiseLevel', parseInt(e.target.value))}
+                  />
+                </div>
+                <div className="range-input">
+                  <label>Max: {filters.maxNoiseLevel}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={filters.maxNoiseLevel}
+                    onChange={(e) => handleFilterChange('maxNoiseLevel', parseInt(e.target.value))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Location Filters */}
+            <div className="filter-section">
+              <h4>Location</h4>
+              <div className="location-filters">
+                <div className="filter-input">
+                  <label>City</label>
+                  <input
+                    type="text"
+                    placeholder="Enter city name..."
+                    value={filters.city}
+                    onChange={(e) => handleFilterChange('city', e.target.value)}
+                  />
+                </div>
+                <div className="filter-input">
+                  <label>ZIP Code</label>
+                  <input
+                    type="text"
+                    placeholder="Enter ZIP code..."
+                    value={filters.zipCode}
+                    onChange={(e) => handleFilterChange('zipCode', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Active Filters Summary */}
+            <div className="filter-summary">
+              <h4>Active Filters</h4>
+              <div className="active-filters">
+                {filters.categories.length > 0 && (
+                  <span className="active-filter-tag">
+                    Categories: {filters.categories.join(', ')}
+                  </span>
+                )}
+                {(filters.minNoiseLevel > 1 || filters.maxNoiseLevel < 10) && (
+                  <span className="active-filter-tag">
+                    Noise Level: {filters.minNoiseLevel}-{filters.maxNoiseLevel}
+                  </span>
+                )}
+                {filters.city && (
+                  <span className="active-filter-tag">
+                    City: {filters.city}
+                  </span>
+                )}
+                {filters.zipCode && (
+                  <span className="active-filter-tag">
+                    ZIP: {filters.zipCode}
+                  </span>
+                )}
+                {filters.categories.length === 0 && 
+                 filters.minNoiseLevel === 1 && 
+                 filters.maxNoiseLevel === 10 && 
+                 !filters.city && 
+                 !filters.zipCode && (
+                  <span className="no-filters">No filters applied</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="legend-section">
           <div className="legend">
             <h4>Noise Level Legend</h4>
             <div className="legend-item">
@@ -1625,7 +1941,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       )}
 
       <div className="stats">
-        <p>Total noise reports in view: {noiseReports.length}</p>
+        <p>Filtered noise reports in view: {noiseReports.length}</p>
+        {filters.categories.length > 0 || filters.minNoiseLevel > 1 || filters.maxNoiseLevel < 10 || filters.city || filters.zipCode ? (
+          <p className="filter-info">Filters are active</p>
+        ) : null}
       </div>
     </div>
   );

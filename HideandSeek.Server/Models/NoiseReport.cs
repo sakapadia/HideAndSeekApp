@@ -188,6 +188,19 @@ public class NoiseReport : ITableEntity
     /// </summary>
     public string MediaFiles { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Number of upvotes this report has received.
+    /// Starts at 0 and increments when users upvote the report.
+    /// </summary>
+    public int Upvotes { get; set; } = 0;
+
+    /// <summary>
+    /// Array of user IDs who have upvoted this report.
+    /// Stored as JSON string for Azure Table Storage compatibility.
+    /// Used to prevent duplicate upvotes from the same user.
+    /// </summary>
+    public string UpvotedBy { get; set; } = string.Empty;
+
     // ===== HELPER METHODS =====
 
     /// <summary>
@@ -292,5 +305,55 @@ public class NoiseReport : ITableEntity
     public void SetMediaFilesList(List<string> files)
     {
         MediaFiles = JsonSerializer.Serialize(files);
+    }
+
+    /// <summary>
+    /// Gets the list of user IDs who have upvoted this report.
+    /// </summary>
+    public List<string> GetUpvotedByList()
+    {
+        if (string.IsNullOrEmpty(UpvotedBy))
+            return new List<string>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(UpvotedBy) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the list of user IDs who have upvoted this report.
+    /// </summary>
+    public void SetUpvotedByList(List<string> userIds)
+    {
+        UpvotedBy = JsonSerializer.Serialize(userIds);
+    }
+
+    /// <summary>
+    /// Checks if a specific user has upvoted this report.
+    /// </summary>
+    public bool HasUserUpvoted(string userId)
+    {
+        return GetUpvotedByList().Contains(userId);
+    }
+
+    /// <summary>
+    /// Adds an upvote from a specific user.
+    /// Returns true if the upvote was added, false if the user already upvoted.
+    /// </summary>
+    public bool AddUpvote(string userId)
+    {
+        var upvotedBy = GetUpvotedByList();
+        if (upvotedBy.Contains(userId))
+            return false;
+        
+        upvotedBy.Add(userId);
+        SetUpvotedByList(upvotedBy);
+        Upvotes++;
+        return true;
     }
 } 
