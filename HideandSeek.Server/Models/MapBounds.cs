@@ -151,4 +151,9 @@ public class NoiseReportDto
     /// Number of points awarded for this report.
     /// </summary>
     public int PointsAwarded { get; set; }
+
+    /// <summary>
+    /// Number of upvotes this report has received from all users.
+    /// </summary>
+    public int Upvotes { get; set; }
 } 

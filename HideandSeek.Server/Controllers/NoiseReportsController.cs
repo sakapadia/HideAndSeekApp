@@ -476,7 +476,8 @@ public class NoiseReportsController : ControllerBase
                 BlastRadius = report.BlastRadius,
                 TimeOption = report.TimeOption,
                 IsRecurring = report.IsRecurring,
-                PointsAwarded = report.PointsAwarded
+                PointsAwarded = report.PointsAwarded,
+                Upvotes = report.Upvotes
             }).ToList();
 
             return Ok(reportDtos);

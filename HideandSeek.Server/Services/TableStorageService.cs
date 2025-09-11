@@ -136,7 +136,8 @@ public class TableStorageService : ITableStorageService
                                 ZipCode = report.PartitionKey,
                                 BlastRadius = report.BlastRadius,
                                 TimeOption = report.TimeOption,
-                                IsRecurring = report.IsRecurring
+                                IsRecurring = report.IsRecurring,
+                                Upvotes = report.Upvotes
                             });
                             totalCount++;
                         }

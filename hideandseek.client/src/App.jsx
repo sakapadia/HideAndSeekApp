@@ -1045,6 +1045,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [upvotedReports, setUpvotedReports] = useState(new Set());
   const [reportUpvotes, setReportUpvotes] = useState(new Map()); // reportId -> upvote count
   
+  // Marker state tracking for incremental updates
+  const [displayedReportIds, setDisplayedReportIds] = useState(new Set());
+  const [cachedReports, setCachedReports] = useState([]);
+  
   // Refs are now defined in the main App component
 
   // Google Maps state is now handled in the main App component
@@ -1053,6 +1057,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Use ref to store current filters to avoid closure issues
   const filtersRef = React.useRef(filters);
   filtersRef.current = filters;
+  
+  // Use ref to track if we're currently fetching to prevent race conditions
+  const isFetchingRef = React.useRef(false);
 
   // Make upvote function available globally for info window buttons
   React.useEffect(() => {
@@ -1072,8 +1079,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   // Refresh map when filters change
   useEffect(() => {
-    if (map) {
-      console.log('Filters changed, refreshing map markers with filters:', filters);
+    if (map && !isFetchingRef.current && cachedReports.length > 0) {
+      console.log('Filters changed, updating markers with cached data:', filters);
+      // Use cached data to avoid API call when only filters change
+      updateMarkersIncremental(cachedReports, map);
+    } else if (map && !isFetchingRef.current) {
+      console.log('Filters changed, fetching new data:', filters);
       fetchNoiseReports(map);
     }
   }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, map]);
@@ -1169,6 +1180,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       
       // Add bounds changed listener to refresh markers when map is moved
       mapInstance.addListener('bounds_changed', () => {
+        // Skip if already fetching
+        if (isFetchingRef.current) {
+          console.log('Skipping bounds_changed event - already fetching');
+          return;
+        }
+        
         // Debounce the bounds change to avoid too many API calls
         clearTimeout(updateIntervalRef.current);
         updateIntervalRef.current = setTimeout(() => {
@@ -1178,14 +1195,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           } catch (error) {
             console.error('Error in bounds_changed listener:', error);
           }
-        }, 1000); // Wait 1 second after user stops moving the map
+        }, 2000); // Wait 2 seconds after user stops moving the map
       });
       
       // Initial fetch with a delay to ensure map is fully loaded
       setTimeout(() => {
         console.log('Initial fetch of noise reports after map load delay');
         try {
-          fetchNoiseReports(mapInstance);
+          handleInitialLoad(mapInstance);
         } catch (error) {
           console.error('Error in initial fetch:', error);
         }
@@ -1235,6 +1252,13 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         return;
       }
       
+      // Prevent multiple simultaneous fetches
+      if (isFetchingRef.current) {
+        console.log('Already fetching markers, skipping duplicate request');
+        return;
+      }
+      
+      isFetchingRef.current = true;
       setMarkersLoading(true);
       console.log('Fetching noise reports...');
       
@@ -1263,6 +1287,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       console.error('Error in fetchNoiseReports:', error);
       setError('Failed to load noise reports. Please try again.');
     } finally {
+      isFetchingRef.current = false;
       setMarkersLoading(false);
     }
   };
@@ -1388,6 +1413,166 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }
   };
 
+  // Incremental marker update function
+  const updateMarkersIncremental = (newReports, mapInstance) => {
+    console.log('Updating markers incrementally...');
+    
+    // Apply filters to the new reports
+    const filteredReports = applyFilters(newReports || [], filtersRef.current);
+    console.log(`Filtered ${newReports?.length || 0} reports to ${filteredReports.length} based on current filters`);
+    
+    // Get current report IDs that should be displayed
+    const newReportIds = new Set(filteredReports.map(report => report.id || report.Id || report.rowKey || report.RowKey));
+    
+    // Find reports to remove (currently displayed but not in new filtered set)
+    const reportsToRemove = Array.from(displayedReportIds).filter(id => !newReportIds.has(id));
+    
+    // Find reports to add (in new filtered set but not currently displayed)
+    const reportsToAdd = filteredReports.filter(report => {
+      const reportId = report.id || report.Id || report.rowKey || report.RowKey;
+      return !displayedReportIds.has(reportId);
+    });
+    
+    console.log(`Reports to remove: ${reportsToRemove.length}, Reports to add: ${reportsToAdd.length}`);
+    
+    // Remove markers for filtered out reports
+    reportsToRemove.forEach(reportId => {
+      const markerIndex = markersRef.current.findIndex(item => 
+        item && item.reportId === reportId
+      );
+      if (markerIndex !== -1) {
+        const marker = markersRef.current[markerIndex];
+        if (marker && marker.setMap) {
+          marker.setMap(null);
+        }
+        markersRef.current.splice(markerIndex, 1);
+      }
+    });
+    
+    // Add markers for new reports
+    let markersCreated = 0;
+    let markersSkipped = 0;
+    
+    reportsToAdd.forEach(report => {
+      // Ensure we have valid coordinates for the marker
+      let markerPosition = null;
+      
+      const lat = report.latitude || report.Latitude;
+      const lng = report.longitude || report.Longitude;
+      
+      if (lat && lng && lat !== 0 && lng !== 0) {
+        markerPosition = { lat: lat, lng: lng };
+      } else if (report.streetAddress && report.city && report.state && report.zipCode) {
+        console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
+        markersSkipped++;
+        return;
+      } else {
+        console.warn(`Report ${report.id} has no valid location information`);
+        markersSkipped++;
+        return;
+      }
+
+      const reportId = report.id || report.Id || report.rowKey || report.RowKey;
+      
+      const marker = new google.maps.Marker({
+        position: markerPosition,
+        map: mapInstance,
+        title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
+              <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(24, 24)
+        }
+      });
+      
+      // Store report ID on marker for easy removal
+      marker.reportId = reportId;
+
+      // Build address display string
+      let addressDisplay = 'No address provided';
+      if (report.streetAddress && report.city && report.state && report.zipCode) {
+        addressDisplay = `${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`;
+      } else if (report.address || report.Address) {
+        addressDisplay = report.address || report.Address;
+      } else if (lat && lng) {
+        addressDisplay = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      }
+
+      // Add info window with enhanced content
+      const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
+      const hasUpvoted = upvotedReports.has(reportId);
+      
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 10px; max-width: 250px;">
+            <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
+            ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
+            ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+            ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+              <button 
+                id="upvote-btn-${reportId}" 
+                onclick="window.upvoteReport('${reportId}')"
+                style="
+                  background: ${hasUpvoted ? '#ccc' : '#667eea'};
+                  color: white;
+                  border: none;
+                  padding: 6px 12px;
+                  border-radius: 6px;
+                  cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
+                  font-size: 12px;
+                  display: flex;
+                  align-items: center;
+                  gap: 4px;
+                  transition: background 0.2s;
+                "
+                ${hasUpvoted ? 'disabled' : ''}
+              >
+                👍 ${upvoteCount}
+              </button>
+            </div>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(mapInstance, marker);
+        if (reportId) {
+          checkUpvoteStatus(reportId);
+        }
+      });
+
+      // Create blast radius circle if blast radius is specified
+      const blastRadius = report.blastRadius || report.BlastRadius;
+      if (blastRadius) {
+        const circle = createBlastRadiusCircle(mapInstance, markerPosition, blastRadius);
+        if (circle) {
+          circle.reportId = reportId; // Store report ID for cleanup
+          markersRef.current.push(circle);
+        }
+      }
+
+      markersRef.current.push(marker);
+      markersCreated++;
+      console.log('Marker created for report:', report.id);
+    });
+    
+    // Update state
+    setDisplayedReportIds(newReportIds);
+    setCachedReports(filteredReports);
+    setNoiseReports(filteredReports);
+    
+    console.log(`Incremental update: Added ${markersCreated} markers, Removed ${reportsToRemove.length} markers, Skipped ${markersSkipped}`);
+  };
+
   const fetchNoiseReportsWithBounds = async (bounds, mapInstance) => {
     try {
       const ne = bounds.getNorthEast();
@@ -1429,156 +1614,25 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       }
 
       const data = await response.json();
-      
-      // Apply filters to the data
       console.log('Raw reports from API:', data.reports?.length || 0);
-      console.log('Current filters being applied:', filtersRef.current);
-      const filteredReports = applyFilters(data.reports || [], filtersRef.current);
-      console.log(`Filtered ${data.reports?.length || 0} reports to ${filteredReports.length} based on current filters`);
       
-      // Clear existing markers and circles
-      markersRef.current.forEach(item => {
-        if (item.setMap) {
-          item.setMap(null);
-        }
-      });
-      markersRef.current = [];
-
-      let markersCreated = 0;
-      let markersSkipped = 0;
-
-      if (!filteredReports || filteredReports.length === 0) {
-        console.log('No reports found in the current bounds after filtering');
-        setNoiseReports([]);
-        return;
-      }
-
-      // Add new markers
-      filteredReports.forEach(report => {
-        // Ensure we have valid coordinates for the marker
-        // Handle both PascalCase (Latitude, Longitude) and camelCase (latitude, longitude)
-        let markerPosition = null;
-        
-        const lat = report.latitude || report.Latitude;
-        const lng = report.longitude || report.Longitude;
-        
-        if (lat && lng && lat !== 0 && lng !== 0) {
-          // Use provided coordinates
-          markerPosition = { lat: lat, lng: lng };
-        } else if (report.streetAddress && report.city && report.state && report.zipCode) {
-          // If no coordinates but we have address, skip for now
-          console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
-          markersSkipped++;
-          return;
-        } else {
-          // Skip reports with no location information
-          console.warn(`Report ${report.id} has no valid location information`);
-          markersSkipped++;
-          return;
-        }
-
-        const marker = new google.maps.Marker({
-          position: markerPosition,
-          map: mapInstance,
-          title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
-              </svg>
-            `),
-            scaledSize: new google.maps.Size(24, 24)
-          }
-        });
-
-        // Build address display string
-        let addressDisplay = 'No address provided';
-        if (report.streetAddress && report.city && report.state && report.zipCode) {
-          addressDisplay = `${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`;
-        } else if (report.address || report.Address) {
-          addressDisplay = report.address || report.Address;
-        } else if (lat && lng) {
-          addressDisplay = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-        }
-
-        // Add info window with enhanced content
-        const reportId = report.id || report.Id || report.rowKey || report.RowKey;
-        const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
-        const hasUpvoted = upvotedReports.has(reportId);
-        
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-            <div style="padding: 10px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
-              ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
-              ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
-              ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
-              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
-                <button 
-                  id="upvote-btn-${reportId}" 
-                  onclick="window.upvoteReport('${reportId}')"
-                  style="
-                    background: ${hasUpvoted ? '#ccc' : '#667eea'};
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
-                    font-size: 12px;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    transition: background 0.2s;
-                  "
-                  ${hasUpvoted ? 'disabled' : ''}
-                >
-                  👍 ${upvoteCount}
-                </button>
-              </div>
-            </div>
-          `
-        });
-
-        marker.addListener('click', () => {
-          infoWindow.open(mapInstance, marker);
-          // Check upvote status when info window opens
-          if (reportId) {
-            checkUpvoteStatus(reportId);
-          }
-        });
-
-        // Create blast radius circle if blast radius is specified
-        const blastRadius = report.blastRadius || report.BlastRadius;
-        if (blastRadius) {
-          const circle = createBlastRadiusCircle(mapInstance, markerPosition, blastRadius);
-          if (circle) {
-            // Store circle reference for cleanup
-            markersRef.current.push(circle);
-          }
-        }
-
-        markersRef.current.push(marker);
-        markersCreated++;
-        console.log('Marker created for report:', report.id);
-      });
-
-      setNoiseReports(filteredReports);
-      
-      // Log marker creation summary
-      console.log(`Markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total filtered reports: ${filteredReports.length}`);
-      
-      if (markersSkipped > 0) {
-        console.warn(`${markersSkipped} reports were skipped due to missing location information`);
-      }
+      // Use incremental update instead of recreating all markers
+      updateMarkersIncremental(data.reports || [], mapInstance);
       
     } catch (error) {
       console.error('Error fetching noise reports with bounds:', error);
       throw error;
+    }
+  };
+
+  // Handle initial load when no cached data exists
+  const handleInitialLoad = (mapInstance) => {
+    if (cachedReports.length === 0) {
+      console.log('No cached data, performing initial load');
+      fetchNoiseReports(mapInstance);
+    } else {
+      console.log('Using cached data for initial load');
+      updateMarkersIncremental(cachedReports, mapInstance);
     }
   };
 
@@ -1731,6 +1785,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             onClick={() => {
               if (map) {
                 try {
+                  // Clear cache to force fresh data fetch
+                  setCachedReports([]);
+                  setDisplayedReportIds(new Set());
                   fetchNoiseReports(map);
                 } catch (error) {
                   console.error('Error refreshing reports:', error);
