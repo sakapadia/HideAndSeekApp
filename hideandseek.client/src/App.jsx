@@ -320,7 +320,7 @@ function App() {
         const loader = new Loader({
           apiKey: GOOGLE_MAPS_API_KEY,
           version: 'weekly',
-          libraries: ['places']
+          libraries: ['places', 'marker']
         });
 
         await loader.load();
@@ -346,6 +346,7 @@ function App() {
             center: { lat: 47.6062, lng: -122.3321 }, // Seattle
             zoom: 10,
             mapTypeId: google.maps.MapTypeId.ROADMAP,
+            mapId: 'DEMO_MAP_ID',
             disableDefaultUI: true, // Hide default controls
             zoomControl: false,
             streetViewControl: false,
@@ -380,20 +381,21 @@ function App() {
                 persistentMapInstance.setZoom(14);
                 
                 // Add user location marker
-                const userMarker = new google.maps.Marker({
+                const userMarker = new google.maps.marker.AdvancedMarkerElement({
                   position: userLocation,
                   map: persistentMapInstance,
                   title: 'Your Location',
-                  icon: {
-                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
-                        <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-                      </svg>
-                    `),
-                    scaledSize: new google.maps.Size(24, 24)
-                  }
+                  content: document.createElement('div')
                 });
+                
+                // Set the marker content with custom icon
+                const markerContent = userMarker.content;
+                markerContent.innerHTML = `
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+                    <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                  </svg>
+                `;
                 persistentMapMarkersRef.current.push(userMarker);
                 console.log('✅ User location marker added');
                 
@@ -459,20 +461,21 @@ function App() {
         persistentMap.setZoom(14);
         
         // Add a marker for user location
-        new google.maps.Marker({
+        const userMarker = new google.maps.marker.AdvancedMarkerElement({
           position: userLocation,
           map: persistentMap,
           title: 'Your Location',
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-              </svg>
-            `),
-            scaledSize: new google.maps.Size(24, 24)
-          }
+          content: document.createElement('div')
         });
+        
+        // Set the marker content with custom icon
+        const markerContent = userMarker.content;
+        markerContent.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+            <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+          </svg>
+        `;
         
         console.log('Centered persistent map on user location:', userLocation);
         setError(null); // Clear any previous errors
@@ -705,20 +708,20 @@ function App() {
           return;
         }
 
-        const marker = new google.maps.Marker({
+        const marker = new google.maps.marker.AdvancedMarkerElement({
           position: markerPosition,
           map: mapInstance,
           title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
-              </svg>
-            `),
-            scaledSize: new google.maps.Size(40, 40),
-            anchor: new google.maps.Point(12, 24)
-          }
+          content: document.createElement('div')
         });
+        
+        // Set the marker content with custom icon
+        const markerContent = marker.content;
+        markerContent.innerHTML = `
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
+          </svg>
+        `;
 
         // Build address display string
         let addressDisplay = 'No address provided';
@@ -1288,6 +1291,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         center: { lat: 47.6062, lng: -122.3321 }, // Seattle
         zoom: 10,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
+        mapId: 'DEMO_MAP_ID',
         disableDefaultUI: false, // Show default controls for main map
         zoomControl: true,
         streetViewControl: true,
@@ -1641,8 +1645,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     
     // Remove all markers and circles
     markerRef.current.forEach(item => {
-      if (item && item.setMap) {
-        item.setMap(null);
+      if (item && (item.setMap || item.map)) {
+        if (item.setMap) {
+          item.setMap(null);
+        } else if (item.map) {
+          item.map = null;
+        }
       }
     });
     
@@ -1671,8 +1679,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     // Always clear all existing markers first to ensure clean state
     // Clearing all existing markers
     markerRef.current.forEach(item => {
-      if (item && item.setMap) {
-        item.setMap(null);
+      if (item && (item.setMap || item.map)) {
+        if (item.setMap) {
+          item.setMap(null);
+        } else if (item.map) {
+          item.map = null;
+        }
       }
     });
     markerRef.current.length = 0;
@@ -1712,20 +1724,20 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       const reportId = report.id || report.Id || report.rowKey || report.RowKey;
       
-      const marker = new google.maps.Marker({
+      const marker = new google.maps.marker.AdvancedMarkerElement({
         position: markerPosition,
         map: mapInstance,
         title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
-            </svg>
-          `),
-          scaledSize: new google.maps.Size(40, 40),
-          anchor: new google.maps.Point(12, 24)
-        }
+        content: document.createElement('div')
       });
+      
+      // Set the marker content with custom icon
+      const markerContent = marker.content;
+      markerContent.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
+        </svg>
+      `;
       
       // Store report ID on marker for easy removal
       marker.reportId = reportId;
@@ -1898,11 +1910,21 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         setUserLocation({ lat: latitude, lng: longitude });
         map.setCenter({ lat: latitude, lng: longitude });
         map.setZoom(14);
-        new google.maps.Marker({
+        const userMarker = new google.maps.marker.AdvancedMarkerElement({
           position: { lat: latitude, lng: longitude },
           map,
-          title: 'Your Location'
+          title: 'Your Location',
+          content: document.createElement('div')
         });
+        
+        // Set the marker content with custom icon
+        const markerContent = userMarker.content;
+        markerContent.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+            <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+          </svg>
+        `;
       },
       () => {
         setError('Unable to access your location. Please allow location access or try again.');
@@ -2074,7 +2096,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             <div className="filter-section">
               <h4>Noise Categories</h4>
               <div className="category-filters">
-                {['Traffic', 'Construction', 'Music', 'Party', 'Industrial', 'Other'].map(category => (
+                {['Traffic', 'Construction', 'Fireworks', 'Protests', 'Sports', 'Other'].map(category => (
                   <label key={category} className="category-filter-item">
                     <input
                       type="checkbox"
