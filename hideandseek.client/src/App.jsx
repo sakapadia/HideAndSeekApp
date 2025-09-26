@@ -89,11 +89,16 @@ function App() {
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [persistentMap, setPersistentMap] = useState(null);
 
+  // Upvote state - track which reports the user has upvoted
+  const [upvotedReports, setUpvotedReports] = useState(new Set());
+  const [reportUpvotes, setReportUpvotes] = useState(new Map()); // reportId -> upvote count
+
   // ===== REFS =====
   const mapRef = React.useRef(null);
   const markersRef = React.useRef([]);
   const persistentMapMarkersRef = React.useRef([]);
   const updateIntervalRef = React.useRef(null);
+  const debounceTimeoutRef = React.useRef(null);
 
   // ===== UTILITY FUNCTIONS =====
   const getNoiseLevelColor = (level) => {
@@ -101,6 +106,137 @@ function App() {
     if (level <= 6) return '#FF9800'; // Orange for medium noise
     return '#F44336'; // Red for high noise
   };
+
+  // Extract duplicate OAuth login success handler
+  const handleOAuthLoginSuccess = (userData) => {
+    setUserInfoFromData(userData, userData.Token);
+    setForceAccountSelection(false);
+    localStorage.removeItem('hideandseek_force_account_selection');
+  };
+
+  // Extract duplicate OAuth login error handler
+  const handleOAuthLoginError = (error) => {
+    setError(error);
+  };
+
+  // Extract duplicate user info setting logic
+  const setUserInfoFromData = (userData, token = '') => {
+    const userId = userData.UserId || userData.userId || '';
+    const displayName = userData.DisplayName || userData.displayName || '';
+    const email = userData.Email || userData.email || '';
+    const provider = userData.Provider || userData.provider || '';
+    const customUsername = userData.CustomUsername || userData.customUsername || '';
+    const computedUsername = customUsername || displayName || (email ? email.split('@')[0] : '');
+    
+    setUserInfo({
+      userId,
+      displayName,
+      email,
+      provider,
+      customUsername,
+      username: computedUsername,
+      isLoggedIn: true,
+      jwtToken: token
+    });
+  };
+
+  const clearUserInfo = () => {
+    setUserInfo({
+      userId: '',
+      displayName: '',
+      email: '',
+      provider: '',
+      customUsername: '',
+      username: '',
+      isLoggedIn: false,
+      jwtToken: ''
+    });
+  };
+
+  // Extract duplicate UI components
+  const LoadingOverlay = ({ message = "Validating authentication..." }) => (
+    <div className="loading-overlay">
+      <div className="loading-spinner"></div>
+      <p>{message}</p>
+    </div>
+  );
+
+  const ErrorBanner = () => (
+    <div className="error-banner">
+      <p>{error}</p>
+      <button onClick={() => setError(null)}>Dismiss</button>
+    </div>
+  );
+
+  // Function to generate estimated duration display text
+  function getEstimatedDurationText(report) {
+    // Check for multiple possible field name variations - prioritize PascalCase since API returns that
+    const customDate = report.CustomDate || report.customDate || report.custom_date || report.CUSTOM_DATE;
+    const isRecurring = report.IsRecurring || report.isRecurring || report.is_recurring || report.IS_RECURRING;
+    const recurrenceConfig = report.RecurrenceConfig || report.recurrenceConfig || report.recurrence_config || report.RECURRENCE_CONFIG;
+    const customSlots = report.CustomSlots || report.customSlots || report.custom_slots || report.CUSTOM_SLOTS;
+    
+    // Debug logging removed for cleaner output
+    
+    // Priority 1: Custom date (most specific timing information)
+    if (customDate && customDate.trim() !== '') {
+      try {
+        const date = new Date(customDate);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString();
+        }
+      } catch (error) {
+        console.warn('Invalid custom date:', customDate, error);
+      }
+    }
+    
+    // Priority 2: Recurrence configuration (if recurring)
+    if (isRecurring && recurrenceConfig && recurrenceConfig.trim() !== '') {
+      try {
+        const config = JSON.parse(recurrenceConfig);
+        
+        // Check for frequency field (based on your Azure data structure)
+        const frequency = config.frequency;
+        
+        if (frequency) {
+          // Capitalize the first letter and return just the frequency
+          const capitalizedFrequency = frequency.charAt(0).toUpperCase() + frequency.slice(1);
+          return capitalizedFrequency;
+        } else {
+          return 'Recurring';
+        }
+      } catch (error) {
+        console.warn('Invalid recurrence config:', recurrenceConfig, error);
+        return 'Recurring';
+      }
+    }
+    
+    // Priority 3: Custom time slots
+    if (customSlots && customSlots.trim() !== '') {
+      try {
+        const slots = JSON.parse(customSlots);
+        if (Array.isArray(slots) && slots.length > 0) {
+          return `Custom times: ${slots.join(', ')}`;
+        }
+      } catch (error) {
+        console.warn('Invalid custom slots:', customSlots);
+      }
+    }
+    
+    // Priority 4: Check if recurring but no config (fallback for recurring)
+    if (isRecurring) {
+      return 'Recurring';
+    }
+    
+    // Priority 5: Time option (basic time period)
+    const timeOption = report.timeOption || report.TimeOption;
+    if (timeOption && timeOption !== 'NOW' && timeOption.trim() !== '') {
+      return `Time: ${timeOption}`;
+    }
+    
+    // Fallback: No timing information available
+    return 'Duration not specified';
+  }
 
   // ===== OAuth Token Handling =====
   useEffect(() => {
@@ -145,38 +281,13 @@ function App() {
       
       if (response.ok) {
         const userData = await response.json();
-        // Support both PascalCase and camelCase keys from the server
-        const userId = userData.UserId || userData.userId || '';
-        const displayName = userData.DisplayName || userData.displayName || '';
-        const email = userData.Email || userData.email || '';
-        const provider = userData.Provider || userData.provider || '';
-        const customUsername = userData.CustomUsername || userData.customUsername || '';
-        const computedUsername = customUsername || displayName || (email ? email.split('@')[0] : '');
-        setUserInfo({
-          userId,
-          displayName,
-          email,
-          provider,
-          customUsername,
-          username: computedUsername,
-          isLoggedIn: true,
-          jwtToken: token
-        });
+        setUserInfoFromData(userData, token);
         localStorage.setItem('hideandseek_token', token);
       } else {
         const errorText = await response.text();
         // Token is invalid, clear stored token
         localStorage.removeItem('hideandseek_token');
-        setUserInfo({
-          userId: '',
-          displayName: '',
-          email: '',
-          provider: '',
-          customUsername: '',
-          username: '',
-          isLoggedIn: false,
-          jwtToken: ''
-        });
+        clearUserInfo();
       }
     } catch (error) {
       localStorage.removeItem('hideandseek_token');
@@ -185,11 +296,18 @@ function App() {
     }
   };
 
+  // Set up global upvote function for main App component
+  useEffect(() => {
+    window.upvoteReport = handleUpvoteMain;
+    return () => {
+      delete window.upvoteReport;
+    };
+  }, [userInfo.jwtToken]);
+
   // ===== GOOGLE MAPS INITIALIZATION =====
   useEffect(() => {
     const initializeMaps = async () => {
       console.log('Initializing Google Maps...');
-      console.log('API Key configured:', GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY');
       
       if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
         console.warn('Google Maps API key not configured. Please add your API key to use the map feature.');
@@ -197,7 +315,7 @@ function App() {
       }
 
       try {
-        console.log('Loading Google Maps API...');
+        // Loading Google Maps API...
         const { Loader } = await import('@googlemaps/js-api-loader');
         const loader = new Loader({
           apiKey: GOOGLE_MAPS_API_KEY,
@@ -206,7 +324,7 @@ function App() {
         });
 
         await loader.load();
-        console.log('Google Maps API loaded successfully');
+        // Google Maps API loaded successfully
         setMapsLoaded(true);
       } catch (error) {
         console.error('Error loading Google Maps:', error);
@@ -384,10 +502,112 @@ function App() {
     );
   };
 
+  // Function to update info window content after upvote (main App component scope)
+  const updateInfoWindowContent = (reportId, upvoteCount, hasUpvoted) => {
+    // Find the button element and update its appearance
+    const buttonElement = document.getElementById(`upvote-btn-${reportId}`);
+    if (buttonElement) {
+      buttonElement.style.background = hasUpvoted ? '#ccc' : '#667eea';
+      buttonElement.style.cursor = hasUpvoted ? 'not-allowed' : 'pointer';
+      buttonElement.disabled = hasUpvoted;
+      buttonElement.innerHTML = `👍 ${upvoteCount}`;
+    }
+  };
+
+  // Global upvote handler for main App component (used by persistent map)
+  const handleUpvoteMain = async (reportId) => {
+    try {
+      console.log('Upvoting report from main component:', reportId);
+      
+      const response = await fetch(`/api/noisereports/${reportId}/upvote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upvote report');
+      }
+
+      const upvoteData = await response.json();
+      console.log('Upvote response from main component:', upvoteData);
+
+      // Update local state
+      setUpvotedReports(prev => new Set([...prev, reportId]));
+      setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
+
+      // Update the info window content to reflect the new upvote state
+      updateInfoWindowContent(reportId, upvoteData.upvotes, true);
+
+      // Show success message
+      console.log('Successfully upvoted report from main component!');
+      
+    } catch (error) {
+      console.error('Error upvoting report from main component:', error);
+      setError(`Failed to upvote report: ${error.message}`);
+    }
+  };
+
+  // Check upvote status for multiple reports at once (main App component scope)
+  const checkUpvoteStatusForReports = async (reports, userToken) => {
+    if (!reports || reports.length === 0 || !userToken) return;
+    
+    try {
+      // Check upvote status for all reports in parallel
+      const upvotePromises = reports.map(async (report) => {
+        const reportId = report.id || report.Id || report.rowKey || report.RowKey;
+        if (!reportId) return null;
+        
+        try {
+          const response = await fetch(`/api/noisereports/${reportId}/upvote-status`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}`
+            }
+          });
+
+          if (response.ok) {
+            const upvoteData = await response.json();
+            return {
+              reportId,
+              upvotes: upvoteData.upvotes,
+              hasUserUpvoted: upvoteData.hasUserUpvoted
+            };
+          }
+        } catch (error) {
+          console.error(`Error checking upvote status for report ${reportId}:`, error);
+        }
+        return null;
+      });
+
+      const results = await Promise.all(upvotePromises);
+      
+      // Update the global upvote state
+      results.forEach(result => {
+        if (result) {
+          // Update reportUpvotes state
+          setReportUpvotes(prev => new Map(prev.set(result.reportId, result.upvotes)));
+          // Update upvotedReports state
+          if (result.hasUserUpvoted) {
+            setUpvotedReports(prev => new Set([...prev, result.reportId]));
+          }
+          // Update the info window content to reflect the current upvote state
+          updateInfoWindowContent(result.reportId, result.upvotes, result.hasUserUpvoted);
+        }
+      });
+    } catch (error) {
+      console.error('Error checking upvote status for reports:', error);
+    }
+  };
+
   // Function to add noise report markers to any map instance
   const addNoiseReportMarkersToMap = async (mapInstance) => {
     try {
-      console.log('Adding noise report markers to map instance:', mapInstance === persistentMap ? 'PERSISTENT MAP' : 'OTHER MAP');
+      // Adding noise report markers to map instance
       
       // Get current map bounds or use default bounds around current center
       let bounds;
@@ -412,18 +632,14 @@ function App() {
     }
   };
 
+
   // Function to fetch and display noise reports for a specific map instance
   const fetchNoiseReportsWithBoundsForMap = async (bounds, mapInstance) => {
     try {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
       
-      console.log('Fetching reports for map instance bounds:', {
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng()
-      });
+      // Fetching reports for map instance bounds
 
       // Get ZIP codes for the current bounds
       const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
@@ -438,7 +654,7 @@ function App() {
       }
 
       const zipCodes = (await zipCodesResponse.json()).join(',');
-      console.log('ZIP codes found for map instance:', zipCodes);
+      // ZIP codes found for map instance
 
       // Fetch noise reports
       const response = await fetch('/api/noisereports?' + new URLSearchParams({
@@ -454,12 +670,15 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Noise reports data received for map instance:', data);
+      // Noise reports data received for map instance
 
       if (!data.reports || data.reports.length === 0) {
         console.log('No reports found for map instance in the current bounds');
         return;
       }
+
+      // Check upvote status for all reports when they're first loaded
+      checkUpvoteStatusForReports(data.reports, userInfo.jwtToken);
 
       let markersCreated = 0;
       let markersSkipped = 0;
@@ -473,7 +692,7 @@ function App() {
             report.latitude !== 0 && report.longitude !== 0) {
           // Use provided coordinates
           markerPosition = { lat: report.latitude, lng: report.longitude };
-          console.log('Using coordinates for map instance:', markerPosition);
+          // Using coordinates for map instance
         } else if (report.streetAddress && report.city && report.state && report.zipCode) {
           // If no coordinates but we have address, skip for now
           console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
@@ -492,12 +711,12 @@ function App() {
           title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
           icon: {
             url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
               </svg>
             `),
-            scaledSize: new google.maps.Size(24, 24)
+            scaledSize: new google.maps.Size(40, 40),
+            anchor: new google.maps.Point(12, 24)
           }
         });
 
@@ -526,6 +745,7 @@ function App() {
               <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
               ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
               ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${getEstimatedDurationText(report)}</p>
               ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
                 <button 
@@ -577,7 +797,7 @@ function App() {
         }
         
         markersCreated++;
-        console.log('Marker created for map instance report:', report.id);
+        // Marker created for map instance report
       });
 
       console.log(`Map instance markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total reports: ${data.reports.length}`);
@@ -634,16 +854,7 @@ function App() {
       }
 
       // Clear local state
-      setUserInfo({
-        userId: '',
-        displayName: '',
-        email: '',
-        provider: '',
-          customUsername: '',
-          username: '',
-        isLoggedIn: false,
-        jwtToken: ''
-      });
+      clearUserInfo();
       localStorage.removeItem('hideandseek_token');
       setShowProfile(false);
       
@@ -689,38 +900,12 @@ function App() {
     return (
       <div className="app">
         <OAuthLogin 
-          onLoginSuccess={(userData) => {
-            const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
-            setUserInfo({
-              userId: userData.UserId,
-              displayName: userData.DisplayName,
-              email: userData.Email,
-              provider: userData.Provider,
-              customUsername: userData.CustomUsername || '',
-              username: computedUsername,
-              isLoggedIn: true,
-              jwtToken: userData.Token
-            });
-            setForceAccountSelection(false);
-            localStorage.removeItem('hideandseek_force_account_selection');
-          }}
-          onLoginError={(error) => {
-            setError(error);
-          }}
+          onLoginSuccess={handleOAuthLoginSuccess}
+          onLoginError={handleOAuthLoginError}
           forceAccountSelection={forceAccountSelection}
         />
-        {loading && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
-            <p>Validating authentication...</p>
-          </div>
-        )}
-        {error && (
-          <div className="error-banner">
-            <p>{error}</p>
-            <button onClick={() => setError(null)}>Dismiss</button>
-          </div>
-        )}
+        {loading && <LoadingOverlay />}
+        {error && <ErrorBanner />}
       </div>
     );
   }
@@ -858,26 +1043,8 @@ function App() {
         {/* Show OAuth login if not logged in, otherwise show main menu */}
         {!userInfo.isLoggedIn ? (
           <OAuthLogin 
-            onLoginSuccess={(userData) => {
-              const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
-              setUserInfo({
-                userId: userData.UserId,
-                displayName: userData.DisplayName,
-                email: userData.Email,
-                provider: userData.Provider,
-                customUsername: userData.CustomUsername || '',
-                username: computedUsername,
-                isLoggedIn: true,
-                jwtToken: userData.Token
-              });
-              // Reset the force account selection flag after successful login
-              setForceAccountSelection(false);
-              localStorage.removeItem('hideandseek_force_account_selection');
-              console.log('✅ DEBUG: forceAccountSelection reset to FALSE after successful login');
-            }}
-            onLoginError={(error) => {
-              setError(error);
-            }}
+            onLoginSuccess={handleOAuthLoginSuccess}
+            onLoginError={handleOAuthLoginError}
             forceAccountSelection={forceAccountSelection}
           />
         ) : (
@@ -903,20 +1070,10 @@ function App() {
         )}
         
         {/* Loading indicator */}
-        {loading && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
-            <p>Validating authentication...</p>
-          </div>
-        )}
+        {loading && <LoadingOverlay />}
         
         {/* Error display */}
-        {error && (
-          <div className="error-banner">
-            <p>{error}</p>
-            <button onClick={() => setError(null)}>Dismiss</button>
-          </div>
-        )}
+        {error && <ErrorBanner />}
       </div>
     );
   }
@@ -952,26 +1109,8 @@ function App() {
       {/* Show OAuth login if not logged in, otherwise show map */}
       {!userInfo.isLoggedIn ? (
         <OAuthLogin 
-          onLoginSuccess={(userData) => {
-            const computedUsername = userData.CustomUsername || userData.DisplayName || (userData.Email ? userData.Email.split('@')[0] : '');
-            setUserInfo({
-              userId: userData.UserId,
-              displayName: userData.DisplayName,
-              email: userData.Email,
-              provider: userData.Provider,
-              customUsername: userData.CustomUsername || '',
-              username: computedUsername,
-              isLoggedIn: true,
-              jwtToken: userData.Token
-            });
-            // Reset the force account selection flag after successful login
-            setForceAccountSelection(false);
-            localStorage.removeItem('hideandseek_force_account_selection');
-            console.log('✅ DEBUG: forceAccountSelection reset to FALSE after successful login');
-          }}
-          onLoginError={(error) => {
-            setError(error);
-          }}
+          onLoginSuccess={handleOAuthLoginSuccess}
+          onLoginError={handleOAuthLoginError}
           forceAccountSelection={forceAccountSelection}
         />
       ) : (
@@ -986,6 +1125,13 @@ function App() {
           markersRef={markersRef}
           persistentMapMarkersRef={persistentMapMarkersRef}
           updateIntervalRef={updateIntervalRef}
+          debounceTimeoutRef={debounceTimeoutRef}
+          getEstimatedDurationText={getEstimatedDurationText}
+          checkUpvoteStatusForReports={checkUpvoteStatusForReports}
+          upvotedReports={upvotedReports}
+          setUpvotedReports={setUpvotedReports}
+          reportUpvotes={reportUpvotes}
+          setReportUpvotes={setReportUpvotes}
         />
       )}
       
@@ -1000,20 +1146,10 @@ function App() {
       )}
 
       {/* Loading indicator */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-spinner"></div>
-          <p>Validating authentication...</p>
-        </div>
-      )}
+      {loading && <LoadingOverlay />}
 
       {/* Error display */}
-      {error && (
-        <div className="error-banner">
-          <p>{error}</p>
-          <button onClick={() => setError(null)}>Dismiss</button>
-        </div>
-      )}
+      {error && <ErrorBanner />}
     </div>
   );
 }
@@ -1022,7 +1158,7 @@ function App() {
  * Original map interface component.
  * This is the previous implementation with Google Maps integration.
  */
-function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode, mapRef, markersRef, persistentMapMarkersRef, updateIntervalRef }) {
+function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode, mapRef, markersRef, persistentMapMarkersRef, updateIntervalRef, debounceTimeoutRef, getEstimatedDurationText, checkUpvoteStatusForReports, upvotedReports, setUpvotedReports, reportUpvotes, setReportUpvotes }) {
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [noiseReports, setNoiseReports] = useState([]);
@@ -1038,12 +1174,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     maxNoiseLevel: 10,
     city: '',
     zipCode: '',
+    timePeriods: [], // Array of selected time periods (Morning, Afternoon, Evening, Night)
+    startDate: '', // Start date for date range filter
+    endDate: '', // End date for date range filter
     showFilters: false
   });
-
-  // Upvote state - track which reports the user has upvoted
-  const [upvotedReports, setUpvotedReports] = useState(new Set());
-  const [reportUpvotes, setReportUpvotes] = useState(new Map()); // reportId -> upvote count
   
   // Marker state tracking for incremental updates
   const [displayedReportIds, setDisplayedReportIds] = useState(new Set());
@@ -1071,9 +1206,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   
   // Debug component lifecycle
   useEffect(() => {
-    console.log('MapInterface component mounted');
+    // MapInterface component mounted
     return () => {
-      console.log('MapInterface component unmounting');
+      // MapInterface component unmounting
     };
   }, []);
 
@@ -1087,31 +1222,28 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       console.log('Filters changed, fetching new data:', filters);
       fetchNoiseReports(map);
     }
-  }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, map]);
+  }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, filters.timePeriods, filters.startDate, filters.endDate, map]);
 
   // Initialize the map when mapsLoaded becomes true
   useEffect(() => {
-    console.log('MapInterface useEffect triggered:', { mapsLoaded, mapRefCurrent: !!mapRef.current, map: !!map });
+    // MapInterface useEffect triggered
     
     // If we already have a map, don't reinitialize
     if (map) {
-      console.log('Map already exists, skipping initialization');
+      // Map already exists, skipping initialization
       return;
     }
     
     if (mapsLoaded && mapRef.current && !map) {
-      console.log('Initializing map in MapInterface...');
-      console.log('Map container dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
-      console.log('Map container styles:', window.getComputedStyle(mapRef.current));
-      console.log('Map container in DOM:', document.contains(mapRef.current));
+      // Initializing map in MapInterface
       
       // Check if container has proper dimensions
       if (mapRef.current.offsetWidth === 0 || mapRef.current.offsetHeight === 0) {
-        console.log('Map container has no dimensions, waiting...');
+        // Map container has no dimensions, waiting...
         // Wait a bit for the container to get proper dimensions
         setTimeout(() => {
           if (mapRef.current && !map) {
-            console.log('Retrying map initialization after delay...');
+            // Retrying map initialization after delay...
             // This will trigger the useEffect again
           }
         }, 100);
@@ -1178,6 +1310,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       setMap(mapInstance);
       setLoading(false);
       
+      // Clear any existing markers when initializing a new map
+      clearAllMarkers(mapInstance);
+      
       // Add bounds changed listener to refresh markers when map is moved
       mapInstance.addListener('bounds_changed', () => {
         // Skip if already fetching
@@ -1187,8 +1322,8 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         }
         
         // Debounce the bounds change to avoid too many API calls
-        clearTimeout(updateIntervalRef.current);
-        updateIntervalRef.current = setTimeout(() => {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = setTimeout(() => {
           try {
             console.log('Bounds changed, refreshing with current filters:', filtersRef.current);
             fetchNoiseReports(mapInstance);
@@ -1208,12 +1343,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         }
       }, 2000);
       
-        console.log('Map initialized successfully in MapInterface');
+        // Map initialized successfully in MapInterface
         
         // Debug map size after initialization
         setTimeout(() => {
-          console.log('Map instance bounds:', mapInstance.getBounds());
-          console.log('Map container final dimensions:', mapRef.current.offsetWidth, 'x', mapRef.current.offsetHeight);
+          // Map instance bounds and container dimensions set
         }, 1000);
       } catch (error) {
         console.error('Error initializing map in MapInterface:', error);
@@ -1231,6 +1365,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           clearInterval(updateIntervalRef.current);
           updateIntervalRef.current = null;
         }
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+          debounceTimeoutRef.current = null;
+        }
       }
     };
   }, [mapsLoaded, mapRef.current, map]); // Add mapRef.current to ensure container is available
@@ -1238,7 +1376,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const startPeriodicUpdates = (mapInstance) => {
     // Update noise reports every 15 minutes
     updateIntervalRef.current = setInterval(() => {
-      fetchNoiseReports(mapInstance);
+      // Only fetch if map is still valid and bounds are available
+      if (mapInstance && mapInstance.getBounds && mapInstance.getBounds()) {
+        fetchNoiseReports(mapInstance);
+      }
     }, 15 * 60 * 1000);
 
     // Initial fetch
@@ -1260,11 +1401,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       
       isFetchingRef.current = true;
       setMarkersLoading(true);
-      console.log('Fetching noise reports...');
+      setError(null); // Clear any previous errors
+      // Fetching noise reports
       
       const bounds = mapInstance.getBounds();
       if (!bounds) {
-        console.log('Map bounds not available yet, using default bounds');
+        // Map bounds not available yet, using default bounds
         // Use bounds around current map center if map bounds are not available yet
         const center = mapInstance.getCenter();
         if (!center) {
@@ -1326,6 +1468,45 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         }
       }
       
+      // Time period filter
+      if (currentFilters.timePeriods.length > 0) {
+        const reportTimeOption = report.timeOption || report.TimeOption;
+        console.log('Time period filter check:', {
+          reportTimeOption,
+          selectedTimePeriods: currentFilters.timePeriods,
+          isIncluded: currentFilters.timePeriods.includes(reportTimeOption)
+        });
+        if (!reportTimeOption || !currentFilters.timePeriods.includes(reportTimeOption)) {
+          return false;
+        }
+      }
+      
+      // Date range filter - use custom date (when the noise occurred) instead of report date
+      if (currentFilters.startDate || currentFilters.endDate) {
+        const customDate = report.customDate || report.CustomDate;
+        console.log('Date range filter check:', {
+          customDate,
+          startDate: currentFilters.startDate,
+          endDate: currentFilters.endDate,
+          hasCustomDate: !!customDate
+        });
+        if (!customDate) {
+          // If no custom date, skip this report
+          return false;
+        }
+        
+        const reportDate = new Date(customDate);
+        const startDate = currentFilters.startDate ? new Date(currentFilters.startDate) : null;
+        const endDate = currentFilters.endDate ? new Date(currentFilters.endDate) : null;
+        
+        if (startDate && reportDate < startDate) {
+          return false;
+        }
+        if (endDate && reportDate > endDate) {
+          return false;
+        }
+      }
+      
       return true;
     });
   };
@@ -1346,6 +1527,15 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }));
   };
 
+  const toggleTimePeriod = (timePeriod) => {
+    setFilters(prev => ({
+      ...prev,
+      timePeriods: prev.timePeriods.includes(timePeriod)
+        ? prev.timePeriods.filter(t => t !== timePeriod)
+        : [...prev.timePeriods, timePeriod]
+    }));
+  };
+
   const clearFilters = () => {
     setFilters({
       categories: [],
@@ -1353,8 +1543,30 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       maxNoiseLevel: 10,
       city: '',
       zipCode: '',
+      timePeriods: [],
+      startDate: '',
+      endDate: '',
       showFilters: false
     });
+    
+    // Refresh the map to show all reports within current bounds
+    if (map && !isFetchingRef.current) {
+      console.log('Clearing filters, refreshing map to show all reports');
+      fetchNoiseReports(map);
+    }
+  };
+
+
+  // Function to update info window content after upvote
+  const updateInfoWindowContent = (reportId, upvoteCount, hasUpvoted) => {
+    // Find the button element and update its appearance
+    const buttonElement = document.getElementById(`upvote-btn-${reportId}`);
+    if (buttonElement) {
+      buttonElement.style.background = hasUpvoted ? '#ccc' : '#667eea';
+      buttonElement.style.cursor = hasUpvoted ? 'not-allowed' : 'pointer';
+      buttonElement.disabled = hasUpvoted;
+      buttonElement.innerHTML = `👍 ${upvoteCount}`;
+    }
   };
 
   // Upvote functions
@@ -1382,6 +1594,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       setUpvotedReports(prev => new Set([...prev, reportId]));
       setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
 
+      // Update the info window content to reflect the new upvote state
+      updateInfoWindowContent(reportId, upvoteData.upvotes, true);
+
       // Show success message
       console.log('Successfully upvoted report!');
       
@@ -1407,49 +1622,72 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         if (upvoteData.hasUserUpvoted) {
           setUpvotedReports(prev => new Set([...prev, reportId]));
         }
+        
+        // Update the info window content to reflect the current upvote state
+        updateInfoWindowContent(reportId, upvoteData.upvotes, upvoteData.hasUserUpvoted);
       }
     } catch (error) {
       console.error('Error checking upvote status:', error);
     }
   };
 
-  // Incremental marker update function
-  const updateMarkersIncremental = (newReports, mapInstance) => {
-    console.log('Updating markers incrementally...');
+
+  // Function to clear all markers from a map instance
+  const clearAllMarkers = (mapInstance) => {
+    const isPersistentMap = mapInstance === persistentMap;
+    const markerRef = isPersistentMap ? persistentMapMarkersRef : markersRef;
     
-    // Apply filters to the new reports
-    const filteredReports = applyFilters(newReports || [], filtersRef.current);
-    console.log(`Filtered ${newReports?.length || 0} reports to ${filteredReports.length} based on current filters`);
+    console.log(`Clearing all markers from ${isPersistentMap ? 'persistent' : 'regular'} map. Count: ${markerRef.current.length}`);
     
-    // Get current report IDs that should be displayed
-    const newReportIds = new Set(filteredReports.map(report => report.id || report.Id || report.rowKey || report.RowKey));
-    
-    // Find reports to remove (currently displayed but not in new filtered set)
-    const reportsToRemove = Array.from(displayedReportIds).filter(id => !newReportIds.has(id));
-    
-    // Find reports to add (in new filtered set but not currently displayed)
-    const reportsToAdd = filteredReports.filter(report => {
-      const reportId = report.id || report.Id || report.rowKey || report.RowKey;
-      return !displayedReportIds.has(reportId);
-    });
-    
-    console.log(`Reports to remove: ${reportsToRemove.length}, Reports to add: ${reportsToAdd.length}`);
-    
-    // Remove markers for filtered out reports
-    reportsToRemove.forEach(reportId => {
-      const markerIndex = markersRef.current.findIndex(item => 
-        item && item.reportId === reportId
-      );
-      if (markerIndex !== -1) {
-        const marker = markersRef.current[markerIndex];
-        if (marker && marker.setMap) {
-          marker.setMap(null);
-        }
-        markersRef.current.splice(markerIndex, 1);
+    // Remove all markers and circles
+    markerRef.current.forEach(item => {
+      if (item && item.setMap) {
+        item.setMap(null);
       }
     });
     
-    // Add markers for new reports
+    // Clear the array
+    markerRef.current.length = 0;
+    
+    // Reset displayed report IDs
+    setDisplayedReportIds(new Set());
+    
+    // Cleared all markers
+  };
+
+  // Incremental marker update function
+  const updateMarkersIncremental = (newReports, mapInstance) => {
+    try {
+      // Updating markers incrementally
+      
+      // Apply filters to the new reports
+      const filteredReports = applyFilters(newReports || [], filtersRef.current);
+      // Filtered reports based on current filters
+    
+    // Determine which marker reference array to use based on map instance
+    const isPersistentMap = mapInstance === persistentMap;
+    const markerRef = isPersistentMap ? persistentMapMarkersRef : markersRef;
+    
+    // Always clear all existing markers first to ensure clean state
+    // Clearing all existing markers
+    markerRef.current.forEach(item => {
+      if (item && item.setMap) {
+        item.setMap(null);
+      }
+    });
+    markerRef.current.length = 0;
+    
+    // Reset displayed report IDs
+    setDisplayedReportIds(new Set());
+    
+    console.log(`Cleared all markers. New count: ${markerRef.current.length}`);
+    
+    // Now add all filtered reports as new markers
+    const reportsToAdd = filteredReports;
+    
+    // Adding filtered reports as new markers
+    
+    // Add markers for filtered reports
     let markersCreated = 0;
     let markersSkipped = 0;
     
@@ -1480,12 +1718,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" fill="#4CAF50" stroke="white" stroke-width="2"/>
-              <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${report.noiseLevel || report.NoiseLevel}</text>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
             </svg>
           `),
-          scaledSize: new google.maps.Size(24, 24)
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(12, 24)
         }
       });
       
@@ -1506,6 +1744,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
       const hasUpvoted = upvotedReports.has(reportId);
       
+      // Get estimated duration text before creating the info window
+      const estimatedDurationText = getEstimatedDurationText(report);
+      
       const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="padding: 10px; max-width: 250px;">
@@ -1516,6 +1757,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
             ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
             ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${estimatedDurationText}</p>
             ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
             <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
               <button 
@@ -1556,21 +1798,27 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         const circle = createBlastRadiusCircle(mapInstance, markerPosition, blastRadius);
         if (circle) {
           circle.reportId = reportId; // Store report ID for cleanup
-          markersRef.current.push(circle);
+          markerRef.current.push(circle);
         }
       }
 
-      markersRef.current.push(marker);
+      markerRef.current.push(marker);
       markersCreated++;
       console.log('Marker created for report:', report.id);
     });
     
     // Update state
+    const newReportIds = new Set(filteredReports.map(report => report.id || report.Id || report.rowKey || report.RowKey));
     setDisplayedReportIds(newReportIds);
     setCachedReports(filteredReports);
     setNoiseReports(filteredReports);
     
-    console.log(`Incremental update: Added ${markersCreated} markers, Removed ${reportsToRemove.length} markers, Skipped ${markersSkipped}`);
+    // Marker update complete
+    } catch (error) {
+      console.error('Error in updateMarkersIncremental:', error);
+      // Don't throw the error here as it would break the calling function
+      // Just log it and continue
+    }
   };
 
   const fetchNoiseReportsWithBounds = async (bounds, mapInstance) => {
@@ -1578,12 +1826,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
       
-      console.log('Fetching reports for bounds:', {
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng()
-      });
+      // Fetching reports for bounds
 
       // Get ZIP codes for the current bounds
       const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
@@ -1598,7 +1841,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       }
 
       const zipCodes = (await zipCodesResponse.json()).join(',');
-      console.log('ZIP codes found:', zipCodes);
+      // ZIP codes found
 
       // Fetch noise reports
       const response = await fetch('/api/noisereports?' + new URLSearchParams({
@@ -1614,7 +1857,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       }
 
       const data = await response.json();
-      console.log('Raw reports from API:', data.reports?.length || 0);
+      // Raw reports from API
+      
+      // Check upvote status for all reports when they're first loaded
+      if (data.reports && data.reports.length > 0 && checkUpvoteStatusForReports) {
+        checkUpvoteStatusForReports(data.reports, userInfo.jwtToken);
+      }
       
       // Use incremental update instead of recreating all markers
       updateMarkersIncremental(data.reports || [], mapInstance);
@@ -1721,8 +1969,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           ref={(el) => {
             mapRef.current = el;
             if (el) {
-              console.log('Map container ref set:', el);
-              console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
+              // Map container ref set
             }
           }}
           className="map" 
@@ -1892,6 +2139,46 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               </div>
             </div>
 
+            {/* Time Period Filter */}
+            <div className="filter-section">
+              <h4>Time Period</h4>
+              <div className="time-period-filters">
+                {['Morning', 'Afternoon', 'Evening', 'Night'].map(timePeriod => (
+                  <label key={timePeriod} className="time-period-filter-item">
+                    <input
+                      type="checkbox"
+                      checked={filters.timePeriods.includes(timePeriod)}
+                      onChange={() => toggleTimePeriod(timePeriod)}
+                    />
+                    <span>{timePeriod}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="filter-section">
+              <h4>Date Range</h4>
+              <div className="date-range-filters">
+                <div className="filter-input">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  />
+                </div>
+                <div className="filter-input">
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Active Filters Summary */}
             <div className="filter-summary">
               <h4>Active Filters</h4>
@@ -1916,11 +2203,29 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
                     ZIP: {filters.zipCode}
                   </span>
                 )}
+                {filters.timePeriods.length > 0 && (
+                  <span className="active-filter-tag">
+                    Time: {filters.timePeriods.join(', ')}
+                  </span>
+                )}
+                {filters.startDate && (
+                  <span className="active-filter-tag">
+                    From: {new Date(filters.startDate).toLocaleDateString()}
+                  </span>
+                )}
+                {filters.endDate && (
+                  <span className="active-filter-tag">
+                    To: {new Date(filters.endDate).toLocaleDateString()}
+                  </span>
+                )}
                 {filters.categories.length === 0 && 
                  filters.minNoiseLevel === 1 && 
                  filters.maxNoiseLevel === 10 && 
                  !filters.city && 
-                 !filters.zipCode && (
+                 !filters.zipCode &&
+                 filters.timePeriods.length === 0 &&
+                 !filters.startDate &&
+                 !filters.endDate && (
                   <span className="no-filters">No filters applied</span>
                 )}
               </div>
@@ -2007,107 +2312,5 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   );
 }
 
-/**
- * Simple noise report form component (for map mode).
- */
-function NoiseReportForm({ location, onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    description: '',
-    noiseType: 'Traffic',
-    noiseLevel: 5,
-    address: ''
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal">
-        <h2>Report Noise Complaint</h2>
-        {location && (
-          <p className="location-info">
-            Location: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-          </p>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="description">Description *</label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              required
-              placeholder="Describe the noise issue..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="noiseType">Noise Type</label>
-            <select
-              id="noiseType"
-              name="noiseType"
-              value={formData.noiseType}
-              onChange={handleChange}
-            >
-              <option value="Traffic">Traffic</option>
-              <option value="Construction">Construction</option>
-              <option value="Music">Music</option>
-              <option value="Party">Party</option>
-              <option value="Industrial">Industrial</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="noiseLevel">Noise Level (1-10)</label>
-            <input
-              type="range"
-              id="noiseLevel"
-              name="noiseLevel"
-              min="1"
-              max="10"
-              value={formData.noiseLevel}
-              onChange={handleChange}
-            />
-            <span>{formData.noiseLevel}</span>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="address">Address</label>
-            <input
-              type="text"
-              id="address"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="Optional"
-            />
-          </div>
-
-          <div className="form-actions">
-            <button type="button" onClick={onCancel} className="cancel-button">
-              Cancel
-            </button>
-            <button type="submit" className="submit-button">
-              Submit Report
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 export default App;

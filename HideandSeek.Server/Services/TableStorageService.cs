@@ -137,7 +137,10 @@ public class TableStorageService : ITableStorageService
                                 BlastRadius = report.BlastRadius,
                                 TimeOption = report.TimeOption,
                                 IsRecurring = report.IsRecurring,
-                                Upvotes = report.Upvotes
+                                Upvotes = report.Upvotes,
+                                CustomDate = report.CustomDate ?? string.Empty,
+                                RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
+                                CustomSlots = report.CustomSlots ?? string.Empty
                             });
                             totalCount++;
                         }

@@ -477,7 +477,10 @@ public class NoiseReportsController : ControllerBase
                 TimeOption = report.TimeOption,
                 IsRecurring = report.IsRecurring,
                 PointsAwarded = report.PointsAwarded,
-                Upvotes = report.Upvotes
+                Upvotes = report.Upvotes,
+                CustomDate = report.CustomDate ?? string.Empty,
+                RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
+                CustomSlots = report.CustomSlots ?? string.Empty
             }).ToList();
 
             return Ok(reportDtos);

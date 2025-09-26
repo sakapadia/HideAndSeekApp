@@ -156,4 +156,19 @@ public class NoiseReportDto
     /// Number of upvotes this report has received from all users.
     /// </summary>
     public int Upvotes { get; set; }
+
+    /// <summary>
+    /// Custom date when the noise occurred (user-specified).
+    /// </summary>
+    public string CustomDate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Recurrence configuration for recurring noise reports (JSON string).
+    /// </summary>
+    public string RecurrenceConfig { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Custom time slots for noise reports (JSON string).
+    /// </summary>
+    public string CustomSlots { get; set; } = string.Empty;
 } 
