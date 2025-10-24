@@ -64,6 +64,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITableStorageService, TableStorageService>();
 builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<ReportMergingService>();
 
 // Add geocoding service
 builder.Services.AddScoped<IGeocodingService, GoogleMapsGeocodingService>();

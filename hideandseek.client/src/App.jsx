@@ -238,6 +238,102 @@ function App() {
     return 'Duration not specified';
   }
 
+  // Function to load comments for a report
+  async function loadComments(reportId) {
+    try {
+      const response = await fetch(`/api/noisereports/${reportId}/comments`);
+      if (!response.ok) {
+        throw new Error('Failed to load comments');
+      }
+      
+      const comments = await response.json();
+      const commentsContainer = document.getElementById(`comments-${reportId}`);
+      
+      if (commentsContainer) {
+        // Update comment count in the header
+        const commentHeader = document.querySelector(`h4[style*="margin: 0 0 8px 0; color: #333; font-size: 14px;"]`);
+        if (commentHeader && commentHeader.textContent.includes('Comments')) {
+          commentHeader.textContent = `Comments (${comments.length})`;
+        }
+        
+        if (comments.length === 0) {
+          commentsContainer.innerHTML = '<p style="margin: 5px 0; color: #999; font-size: 12px; font-style: italic;">No comments yet</p>';
+        } else {
+          const commentsHtml = comments.map(comment => `
+            <div style="margin-bottom: 8px; padding: 6px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #4CAF50;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="font-size: 11px; color: #333;">${comment.username}</strong>
+                <span style="font-size: 10px; color: #666;">${new Date(comment.createdAt).toLocaleString()}</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; color: #555; line-height: 1.4;">${comment.text}</p>
+              ${comment.isFromMerge ? '<span style="font-size: 10px; color: #4CAF50; font-style: italic;">(from merged report)</span>' : ''}
+            </div>
+          `).join('');
+          
+          commentsContainer.innerHTML = commentsHtml;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      const commentsContainer = document.getElementById(`comments-${reportId}`);
+      if (commentsContainer) {
+        commentsContainer.innerHTML = '<p style="margin: 5px 0; color: #e74c3c; font-size: 12px;">Error loading comments</p>';
+      }
+    }
+  }
+
+  // Function to add a comment to a report
+  async function addComment(reportId) {
+    const input = document.getElementById(`comment-input-${reportId}`);
+    const commentText = input?.value?.trim();
+    
+    if (!commentText) {
+      alert('Please enter a comment');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/noisereports/${reportId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ text: commentText })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+      
+      // Clear the input
+      input.value = '';
+      
+      // Reload comments
+      await loadComments(reportId);
+      
+      console.log('Comment added successfully');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      alert('Failed to add comment. Please try again.');
+    }
+  }
+
+  // Function to get display text for a report (most recent comment or description)
+  function getReportDisplayText(report) {
+    // If the report has comments, get the most recent one
+    if (report.comments && Array.isArray(report.comments) && report.comments.length > 0) {
+      const sortedComments = report.comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return sortedComments[0].text;
+    }
+    
+    // Fallback to description
+    return report.description || report.Description || 'No description available';
+  }
+
+  // Make functions globally available for onclick handlers
+  window.addComment = addComment;
+
   // ===== OAuth Token Handling =====
   useEffect(() => {
     
@@ -711,7 +807,7 @@ function App() {
         const marker = new google.maps.marker.AdvancedMarkerElement({
           position: markerPosition,
           map: mapInstance,
-          title: `${report.noiseType || report.NoiseType}: ${report.description || report.Description}`,
+          title: `${report.noiseType || report.NoiseType}: ${getReportDisplayText(report)}`,
           content: document.createElement('div')
         });
         
@@ -740,9 +836,9 @@ function App() {
         
         const infoWindow = new google.maps.InfoWindow({
           content: `
-            <div style="padding: 10px; max-width: 250px;">
+            <div style="padding: 10px; max-width: 300px;">
               <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
+              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Latest Update:</strong> ${getReportDisplayText(report)}</p>
               <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
               <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
               <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
@@ -750,6 +846,23 @@ function App() {
               ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
               <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${getEstimatedDurationText(report)}</p>
               ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+              ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
+              
+              <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${report.comments ? report.comments.length : 0})</h4>
+                <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
+                  <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
+                </div>
+                <div style="display: flex; gap: 5px; margin-top: 10px;">
+                  <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..." 
+                         style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
+                  <button onclick="window.addComment('${reportId}')" 
+                          style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                    Add
+                  </button>
+                </div>
+              </div>
+              
               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
                 <button 
                   id="upvote-btn-${reportId}" 
@@ -781,6 +894,7 @@ function App() {
           // Check upvote status when info window opens
           if (reportId) {
             checkUpvoteStatus(reportId);
+            loadComments(reportId);
           }
         });
 
@@ -1761,9 +1875,8 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div style="padding: 10px; max-width: 250px;">
+          <div style="padding: 10px; max-width: 300px;">
             <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Description:</strong> ${report.description || report.Description}</p>
             <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
             <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
             <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
@@ -1771,6 +1884,23 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
             <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${estimatedDurationText}</p>
             ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+            ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
+            
+            <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+              <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${report.commentCount || 0})</h4>
+              <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
+                <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
+              </div>
+              <div style="display: flex; gap: 5px; margin-top: 10px;">
+                <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..." 
+                       style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
+                <button onclick="window.addComment('${reportId}')" 
+                        style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                  Add
+                </button>
+              </div>
+            </div>
+            
             <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
               <button 
                 id="upvote-btn-${reportId}" 
@@ -1801,6 +1931,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         infoWindow.open(mapInstance, marker);
         if (reportId) {
           checkUpvoteStatus(reportId);
+          loadComments(reportId);
         }
       });
 

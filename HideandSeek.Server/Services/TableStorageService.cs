@@ -48,6 +48,20 @@ public interface ITableStorageService
     Task<NoiseReport?> GetNoiseReportAsync(string reportId);
 
     /// <summary>
+    /// Gets a specific noise report by its RowKey (alias for GetNoiseReportAsync).
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to retrieve</param>
+    /// <returns>The noise report if found, null otherwise</returns>
+    Task<NoiseReport?> GetNoiseReportByIdAsync(string reportId);
+
+    /// <summary>
+    /// Gets all noise reports for a specific ZIP code.
+    /// </summary>
+    /// <param name="zipCode">The ZIP code to search for</param>
+    /// <returns>List of noise reports in the specified ZIP code</returns>
+    Task<List<NoiseReport>> GetNoiseReportsByZipCodeAsync(string zipCode);
+
+    /// <summary>
     /// Updates an existing noise report in Azure Table Storage.
     /// </summary>
     /// <param name="report">The noise report to update</param>
@@ -335,6 +349,42 @@ public class TableStorageService : ITableStorageService
         {
             _logger.LogError(ex, "Error updating noise report {ReportId} in partition {PartitionKey}", 
                 report.RowKey, report.PartitionKey);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets a specific noise report by its RowKey (alias for GetNoiseReportAsync).
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to retrieve</param>
+    /// <returns>The noise report if found, null otherwise</returns>
+    public async Task<NoiseReport?> GetNoiseReportByIdAsync(string reportId)
+    {
+        return await GetNoiseReportAsync(reportId);
+    }
+
+    /// <summary>
+    /// Gets all noise reports for a specific ZIP code.
+    /// </summary>
+    /// <param name="zipCode">The ZIP code to search for</param>
+    /// <returns>List of noise reports in the specified ZIP code</returns>
+    public async Task<List<NoiseReport>> GetNoiseReportsByZipCodeAsync(string zipCode)
+    {
+        try
+        {
+            var reports = new List<NoiseReport>();
+            var query = _tableClient.QueryAsync<NoiseReport>(filter: $"PartitionKey eq '{zipCode}'");
+            
+            await foreach (var report in query)
+            {
+                reports.Add(report);
+            }
+            
+            return reports;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving noise reports for ZIP code: {ZipCode}", zipCode);
             throw;
         }
     }

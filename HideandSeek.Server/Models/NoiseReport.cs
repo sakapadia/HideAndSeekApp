@@ -94,8 +94,33 @@ public class NoiseReport : ITableEntity
     /// <summary>
     /// Detailed description of the noise complaint.
     /// Required field - provides context about the noise issue.
+    /// This field is now considered the "initial comment" and will be converted to a comment when the report is created.
     /// </summary>
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// JSON-serialized list of comments for this noise report.
+    /// The first comment is typically the original description.
+    /// </summary>
+    public string Comments { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether this report has been merged into another report.
+    /// If true, this report should not be displayed independently.
+    /// </summary>
+    public bool IsMerged { get; set; } = false;
+
+    /// <summary>
+    /// The ID of the report that this report was merged into.
+    /// Only set if IsMerged is true.
+    /// </summary>
+    public string MergedIntoReportId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The number of reports that have been merged into this report.
+    /// Used for display purposes to show how many reports were consolidated.
+    /// </summary>
+    public int MergedReportCount { get; set; } = 0;
 
     /// <summary>
     /// Primary category of noise from the 4 specific options.
@@ -355,5 +380,123 @@ public class NoiseReport : ITableEntity
         SetUpvotedByList(upvotedBy);
         Upvotes++;
         return true;
+    }
+
+    // ===== COMMENT MANAGEMENT METHODS =====
+
+    /// <summary>
+    /// Gets the comments as a list of Comment objects.
+    /// </summary>
+    public List<Comment> GetCommentsList()
+    {
+        if (string.IsNullOrEmpty(Comments))
+            return new List<Comment>();
+        
+        try
+        {
+            return JsonSerializer.Deserialize<List<Comment>>(Comments, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }) ?? new List<Comment>();
+        }
+        catch
+        {
+            return new List<Comment>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the comments from a list of Comment objects.
+    /// </summary>
+    public void SetCommentsList(List<Comment> comments)
+    {
+        Comments = JsonSerializer.Serialize(comments, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+    }
+
+    /// <summary>
+    /// Adds a new comment to this report.
+    /// </summary>
+    public void AddComment(Comment comment)
+    {
+        var comments = GetCommentsList();
+        comments.Add(comment);
+        SetCommentsList(comments);
+    }
+
+    /// <summary>
+    /// Adds a new comment with the provided text and user information.
+    /// </summary>
+    public void AddComment(string text, string username, string userId)
+    {
+        var comment = new Comment
+        {
+            Id = Guid.NewGuid().ToString(),
+            Text = text,
+            Username = username,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+        AddComment(comment);
+    }
+
+    /// <summary>
+    /// Initializes the comments list with the original description as the first comment.
+    /// This should be called when creating a new report.
+    /// </summary>
+    public void InitializeCommentsFromDescription(string username, string userId)
+    {
+        if (string.IsNullOrEmpty(Description))
+            return;
+
+        var initialComment = Comment.FromDescription(Description, username, userId);
+        var comments = new List<Comment> { initialComment };
+        SetCommentsList(comments);
+    }
+
+    /// <summary>
+    /// Merges another report into this report by adding its description as a comment.
+    /// </summary>
+    public void MergeReport(NoiseReport otherReport, string username, string userId)
+    {
+        // Add the other report's description as a comment
+        var mergeComment = Comment.FromDescription(
+            otherReport.Description, 
+            username, 
+            userId, 
+            otherReport.RowKey
+        );
+        AddComment(mergeComment);
+
+        // Update merged report count
+        MergedReportCount++;
+
+        // Mark the other report as merged
+        otherReport.IsMerged = true;
+        otherReport.MergedIntoReportId = this.RowKey;
+    }
+
+    /// <summary>
+    /// Gets the display text for this report, which is the most recent comment.
+    /// Falls back to the description if no comments exist.
+    /// </summary>
+    public string GetDisplayText()
+    {
+        var comments = GetCommentsList();
+        if (comments.Any())
+        {
+            return comments.OrderByDescending(c => c.CreatedAt).First().Text;
+        }
+        return Description;
+    }
+
+    /// <summary>
+    /// Gets the total number of comments including the original description.
+    /// </summary>
+    public int GetCommentCount()
+    {
+        return GetCommentsList().Count;
     }
 } 

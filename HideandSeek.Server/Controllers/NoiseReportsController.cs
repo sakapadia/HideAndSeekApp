@@ -20,6 +20,7 @@ public class NoiseReportsController : ControllerBase
     private readonly ITableStorageService _tableStorageService;
     private readonly IUserService _userService;
     private readonly IGeocodingService _geocodingService;
+    private readonly ReportMergingService _reportMergingService;
     private readonly ILogger<NoiseReportsController> _logger;
 
     /// <summary>
@@ -27,12 +28,15 @@ public class NoiseReportsController : ControllerBase
     /// </summary>
     /// <param name="tableStorageService">Service for Azure Table Storage operations</param>
     /// <param name="userService">Service for user account operations</param>
+    /// <param name="geocodingService">Service for geocoding operations</param>
+    /// <param name="reportMergingService">Service for handling report merging logic</param>
     /// <param name="logger">Logger for error tracking and debugging</param>
-    public NoiseReportsController(ITableStorageService tableStorageService, IUserService userService, IGeocodingService geocodingService, ILogger<NoiseReportsController> logger)
+    public NoiseReportsController(ITableStorageService tableStorageService, IUserService userService, IGeocodingService geocodingService, ReportMergingService reportMergingService, ILogger<NoiseReportsController> logger)
     {
         _tableStorageService = tableStorageService;
         _userService = userService;
         _geocodingService = geocodingService;
+        _reportMergingService = reportMergingService;
         _logger = logger;
     }
 
@@ -160,8 +164,8 @@ public class NoiseReportsController : ControllerBase
                     report.Latitude, report.Longitude);
             }
 
-            // Create the noise report in Azure Table Storage
-            var createdReport = await _tableStorageService.CreateNoiseReportAsync(report);
+            // Process the report through the merging service
+            var createdReport = await _reportMergingService.ProcessNewReportAsync(report, username, username);
             
             // Award points to user
             try
@@ -350,8 +354,8 @@ public class NoiseReportsController : ControllerBase
                     report.Latitude, report.Longitude);
             }
 
-            // Create the noise report in Azure Table Storage
-            var createdReport = await _tableStorageService.CreateNoiseReportAsync(report);
+            // Process the report through the merging service
+            var createdReport = await _reportMergingService.ProcessNewReportAsync(report, username, username);
             
             // Award points to user
             try
@@ -653,5 +657,129 @@ public class NoiseReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// POST /api/noisereports/{reportId}/comments
+    /// 
+    /// Adds a comment to an existing noise report.
+    /// Used by the frontend when users want to add additional information to a report.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report to comment on</param>
+    /// <param name="commentRequest">The comment data</param>
+    /// <returns>Success message if comment was added</returns>
+    [HttpPost("{reportId}/comments")]
+    [Authorize] // Require authentication
+    public async Task<ActionResult> AddComment(string reportId, [FromBody] AddCommentRequest commentRequest)
+    {
+        try
+        {
+            // Get username from JWT token
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
 
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            if (string.IsNullOrEmpty(commentRequest?.Text))
+            {
+                return BadRequest(new { message = "Comment text is required" });
+            }
+
+            // Add the comment to the report
+            var success = await _reportMergingService.AddCommentToReportAsync(
+                reportId, 
+                commentRequest.Text, 
+                username, 
+                username
+            );
+
+            if (!success)
+            {
+                return NotFound(new { message = "Report not found" });
+            }
+
+            return Ok(new { message = "Comment added successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding comment to report {ReportId} for user: {Username}", reportId, User.Identity?.Name);
+            return StatusCode(500, new { message = "An error occurred while adding the comment" });
+        }
+    }
+
+    /// <summary>
+    /// GET /api/noisereports/{reportId}/comments
+    /// 
+    /// Gets all comments for a specific noise report.
+    /// Used by the frontend to display the comment section of a report.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report</param>
+    /// <returns>List of comments for the report</returns>
+    [HttpGet("{reportId}/comments")]
+    public async Task<ActionResult<List<Comment>>> GetReportComments(string reportId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            var comments = await _reportMergingService.GetReportCommentsAsync(reportId);
+            return Ok(comments);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting comments for report {ReportId}", reportId);
+            return StatusCode(500, new { message = "An error occurred while retrieving comments" });
+        }
+    }
+
+    /// <summary>
+    /// GET /api/noisereports/{reportId}/with-comments
+    /// 
+    /// Gets a noise report with its comments for detailed display.
+    /// Used by the frontend to show the full report details including comment section.
+    /// </summary>
+    /// <param name="reportId">The RowKey of the report</param>
+    /// <returns>The report with comments</returns>
+    [HttpGet("{reportId}/with-comments")]
+    public async Task<ActionResult<NoiseReport>> GetReportWithComments(string reportId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            var report = await _reportMergingService.GetReportWithCommentsAsync(reportId);
+            if (report == null)
+            {
+                return NotFound(new { message = "Report not found" });
+            }
+
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting report with comments {ReportId}", reportId);
+            return StatusCode(500, new { message = "An error occurred while retrieving the report" });
+        }
+    }
+}
+
+/// <summary>
+/// Request model for adding a comment to a report.
+/// </summary>
+public class AddCommentRequest
+{
+    /// <summary>
+    /// The text content of the comment.
+    /// </summary>
+    public string Text { get; set; } = string.Empty;
 } 
