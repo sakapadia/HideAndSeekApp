@@ -134,13 +134,13 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"http://localhost:50696/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
+            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Google OAuth callback: {Message}", ex.Message);
             _logger.LogError("Stack trace: {StackTrace}", ex.StackTrace);
-            return Redirect($"http://localhost:50696/?error=oauth_failed&details={Uri.EscapeDataString(ex.Message)}");
+            return Redirect($"https://hideandseekapp.azurewebsites.net/?error=oauth_failed&details={Uri.EscapeDataString(ex.Message)}");
         }
     }
 
@@ -176,12 +176,12 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"http://localhost:50696/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
+            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Facebook OAuth callback");
-            return Redirect("http://localhost:50696/?error=oauth_failed");
+            return Redirect("https://hideandseekapp.azurewebsites.net/?error=oauth_failed");
         }
     }
 
@@ -217,12 +217,12 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"http://localhost:50696/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
+            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Microsoft OAuth callback");
-            return Redirect("http://localhost:50696/?error=oauth_failed");
+            return Redirect("https://hideandseekapp.azurewebsites.net/?error=oauth_failed");
         }
     }
 
