@@ -9,10 +9,26 @@ import './components/OAuthLogin.css';
 import { UserDisplay } from './components/UIComponents';
 
 // ===== CONFIGURATION =====
-// Google Maps API key is read from Vite env: VITE_GOOGLE_MAPS_API_KEY
-// Create hideandseek.client/.env.local with: VITE_GOOGLE_MAPS_API_KEY=your_key_here
+// Google Maps API key is fetched from server endpoint /api/config/google-maps-api-key
+// Falls back to Vite env variable VITE_GOOGLE_MAPS_API_KEY for local development
 // Docs: https://vitejs.dev/guide/env-and-mode.html
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+const getGoogleMapsApiKey = async () => {
+  // First try to get from server (for production)
+  try {
+    const response = await fetch('/api/config/google-maps-api-key');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.apiKey) {
+        return data.apiKey;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch API key from server, using environment variable:', error);
+  }
+  
+  // Fallback to environment variable (for local development)
+  return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+};
 
 // ===== UTILITY FUNCTIONS =====
 // Function to create translucent red circles based on blast radius
@@ -87,6 +103,7 @@ function App() {
 
   // Google Maps state
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [mapsApiKeyAvailable, setMapsApiKeyAvailable] = useState(true); // Assume available until we check
   const [persistentMap, setPersistentMap] = useState(null);
 
   // Upvote state - track which reports the user has upvoted
@@ -405,16 +422,22 @@ function App() {
     const initializeMaps = async () => {
       console.log('Initializing Google Maps...');
       
-      if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
+      // Fetch API key from server (or use environment variable as fallback)
+      const apiKey = await getGoogleMapsApiKey();
+      
+      if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
         console.warn('Google Maps API key not configured. Please add your API key to use the map feature.');
+        setMapsApiKeyAvailable(false);
         return;
       }
+
+      setMapsApiKeyAvailable(true);
 
       try {
         // Loading Google Maps API...
         const { Loader } = await import('@googlemaps/js-api-loader');
         const loader = new Loader({
-          apiKey: GOOGLE_MAPS_API_KEY,
+          apiKey: apiKey,
           version: 'weekly',
           libraries: ['places', 'marker']
         });
@@ -1044,7 +1067,7 @@ function App() {
                 textAlign: 'center',
                 padding: '2rem'
               }}>
-                {GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY' 
+                {!mapsApiKeyAvailable 
                   ? '🗺️ Google Maps API key not configured'
                   : '🗺️ Loading Google Maps...'
                 }
