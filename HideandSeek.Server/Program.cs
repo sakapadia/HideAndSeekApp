@@ -66,8 +66,9 @@ builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ReportMergingService>();
 
-// Add geocoding service
-builder.Services.AddScoped<IGeocodingService, GoogleMapsGeocodingService>();
+// Add geocoding service with HttpClient factory
+// This ensures HttpClient is properly injected and managed
+builder.Services.AddHttpClient<IGeocodingService, GoogleMapsGeocodingService>();
 
 var app = builder.Build();
 
