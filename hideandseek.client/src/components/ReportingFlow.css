@@ -15,6 +15,17 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  position: relative;
+}
+
+/* When main menu screen is shown, remove wrapper interference */
+.reporting-flow:has(.main-menu-screen) {
+  padding: 0;
+  background: transparent;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+  overflow: visible;
 }
 
 /* ===== SCREEN CONTAINER ===== */
@@ -1005,11 +1016,11 @@
 
 /* ===== MAIN MENU SCREEN ===== */
 .main-menu-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: var(--main-menu-width);
-  height: 100vh;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--main-menu-width) !important;
+  height: 100vh !important;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1018,6 +1029,8 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   z-index: 2; /* Above persistent map */
   overflow-y: auto;
+  margin: 0 !important;
+  box-sizing: border-box;
 }
 
 .menu-header {
@@ -2047,11 +2060,11 @@
 
 /* ===== MAIN MENU SCREEN ===== */
 .main-menu-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: var(--main-menu-width);
-  height: 100vh;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--main-menu-width) !important;
+  height: 100vh !important;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2060,6 +2073,8 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   z-index: 2; /* Above persistent map */
   overflow-y: auto;
+  margin: 0 !important;
+  box-sizing: border-box;
 }
 
 .menu-header {

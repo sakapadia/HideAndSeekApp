@@ -134,13 +134,17 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Google OAuth callback: {Message}", ex.Message);
             _logger.LogError("Stack trace: {StackTrace}", ex.StackTrace);
-            return Redirect($"https://hideandseekapp.azurewebsites.net/?error=oauth_failed&details={Uri.EscapeDataString(ex.Message)}");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?error=oauth_failed&details={Uri.EscapeDataString(ex.Message)}");
         }
     }
 
@@ -176,12 +180,16 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Facebook OAuth callback");
-            return Redirect("https://hideandseekapp.azurewebsites.net/?error=oauth_failed");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?error=oauth_failed");
         }
     }
 
@@ -217,12 +225,16 @@ public class OAuthController : ControllerBase
             await _userService.UpdateUserLastLoginAsync(user.RowKey);
             
             // Redirect to frontend with token
-            return Redirect($"https://hideandseekapp.azurewebsites.net/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Microsoft OAuth callback");
-            return Redirect("https://hideandseekapp.azurewebsites.net/?error=oauth_failed");
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
+            return Redirect($"{frontendUrl}/?error=oauth_failed");
         }
     }
 
