@@ -7,9 +7,8 @@
 
 /* CSS Custom Properties for consistent layout */
 :root {
-  --main-menu-width: 25vw; /* Use viewport-based width for consistency */
-  --main-menu-width-max: 320px; /* Maximum width */
-  --content-width: calc(100vw - var(--main-menu-width));
+  --main-menu-width: 40vw; /* 2/5 of viewport width (40%) */
+  --content-width: 60vw; /* 3/5 of viewport width (60%) */
   --screen-height: 100vh;
   --content-height: calc(var(--screen-height) - 4rem);
 }
@@ -17,22 +16,22 @@
 /* Responsive adjustments for different screen sizes */
 @media (min-width: 1920px) {
   :root {
-    --main-menu-width: 400px; /* Fixed width on very large screens */
-    --content-width: calc(100vw - 400px);
+    --main-menu-width: 40vw; /* Maintain 40% on very large screens */
+    --content-width: 60vw; /* Maintain 60% on very large screens */
   }
 }
 
 @media (max-width: 1440px) {
   :root {
-    --main-menu-width: 28vw; /* Slightly wider on medium screens */
-    --content-width: calc(100vw - 28vw);
+    --main-menu-width: 40vw; /* Maintain 40% on medium screens */
+    --content-width: 60vw; /* Maintain 60% on medium screens */
   }
 }
 
 @media (max-width: 1024px) {
   :root {
-    --main-menu-width: 30vw; /* Wider on smaller screens */
-    --content-width: calc(100vw - 30vw);
+    --main-menu-width: 40vw; /* Maintain 40% on smaller screens */
+    --content-width: 60vw; /* Maintain 60% on smaller screens */
   }
 }
 
