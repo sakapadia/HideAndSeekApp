@@ -1,7 +1,7 @@
 /* ===== CSS CUSTOM PROPERTIES FOR RESPONSIVE LAYOUT ===== */
 :root {
-  --main-menu-width: 40vw; /* 2/5 of viewport width (40%) */
-  --content-width: 60vw; /* 3/5 of viewport width (60%) */
+  --main-menu-width: 30vw; /* 3/10 of viewport width (30%) */
+  --content-width: 70vw; /* 7/10 of viewport width (70%) */
   --screen-height: 100vh;
   --content-height: calc(var(--screen-height) - 4rem);
 }
@@ -38,6 +38,31 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
+}
+
+/* All screens in reporting flow should be 1/3 width when shown */
+.screen:not(.main-menu-screen) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--main-menu-width) !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  z-index: 2;
+  overflow-y: auto;
+  margin: 0 !important;
+}
+
+/* Override .screen styles when combined with .main-menu-screen */
+.screen.main-menu-screen {
+  max-width: none !important;
+  width: var(--main-menu-width) !important;
+  position: fixed !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 /* ===== PROGRESS BAR ===== */
@@ -756,8 +781,9 @@
 @media (max-width: 768px) {
   .screen {
     padding: 1.5rem;
-    margin: 1rem;
-    border-radius: 16px;
+    margin: 0 !important; /* Remove margin for fixed positioning */
+    border-radius: 0 !important; /* Remove border-radius for fixed screens */
+    width: var(--main-menu-width) !important; /* Maintain 1/3 width */
   }
   
   .heading.h1 {
@@ -824,7 +850,8 @@
   
   .screen {
     padding: 1rem;
-    margin: 0.5rem;
+    margin: 0 !important; /* Remove margin for fixed positioning */
+    width: var(--main-menu-width) !important; /* Maintain 1/3 width */
   }
   
   .btn {
@@ -1015,18 +1042,22 @@
 }
 
 /* ===== MAIN MENU SCREEN ===== */
+/* Override .screen styles for main menu */
 .main-menu-screen {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   width: var(--main-menu-width) !important;
+  max-width: none !important; /* Override .screen max-width */
   height: 100vh !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; /* Override .screen background */
+  border-radius: 0 !important; /* Override .screen border-radius */
+  box-shadow: none !important; /* Override .screen box-shadow */
   z-index: 2; /* Above persistent map */
   overflow-y: auto;
   margin: 0 !important;
@@ -1123,6 +1154,8 @@
 @media (max-width: 768px) {
   .main-menu-screen {
     padding: 1rem;
+    width: var(--main-menu-width) !important; /* Maintain width */
+    max-width: none !important; /* Ensure no max-width constraint */
   }
   
   .menu-options {
@@ -1503,15 +1536,18 @@
 /* ===== WHERE SCREEN ===== */
 
 .where-screen {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--main-menu-width) !important;
+  height: 100vh !important;
   background: white;
   padding: 2rem;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 2;
+  max-width: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .where-screen-content {
@@ -1873,22 +1909,22 @@
 /* ===== RESPONSIVE DESIGN ===== */
 @media (min-width: 1200px) {
   :root {
-    --main-menu-width: 40vw; /* Maintain 40% on larger screens */
-    --content-width: 60vw; /* Maintain 60% on larger screens */
+    --main-menu-width: 30vw; /* Maintain 3/10 on larger screens */
+    --content-width: 70vw; /* Maintain 7/10 on larger screens */
   }
 }
 
 @media (max-width: 1199px) and (min-width: 768px) {
   :root {
-    --main-menu-width: 40vw; /* Maintain 40% on medium screens */
-    --content-width: 60vw; /* Maintain 60% on medium screens */
+    --main-menu-width: 30vw; /* Maintain 3/10 on medium screens */
+    --content-width: 70vw; /* Maintain 7/10 on medium screens */
   }
 }
 
 @media (max-width: 767px) {
   :root {
-    --main-menu-width: 40vw; /* Maintain 40% on smaller screens */
-    --content-width: 60vw; /* Maintain 60% on smaller screens */
+    --main-menu-width: 30vw; /* Maintain 3/10 on smaller screens */
+    --content-width: 70vw; /* Maintain 7/10 on smaller screens */
   }
 }
 
@@ -2059,18 +2095,22 @@
 }
 
 /* ===== MAIN MENU SCREEN ===== */
+/* Override .screen styles for main menu */
 .main-menu-screen {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   width: var(--main-menu-width) !important;
+  max-width: none !important; /* Override .screen max-width */
   height: 100vh !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; /* Override .screen background */
+  border-radius: 0 !important; /* Override .screen border-radius */
+  box-shadow: none !important; /* Override .screen box-shadow */
   z-index: 2; /* Above persistent map */
   overflow-y: auto;
   margin: 0 !important;
@@ -2167,6 +2207,8 @@
 @media (max-width: 768px) {
   .main-menu-screen {
     padding: 1rem;
+    width: var(--main-menu-width) !important; /* Maintain width */
+    max-width: none !important; /* Ensure no max-width constraint */
   }
   
   .menu-options {
@@ -2547,15 +2589,18 @@
 /* ===== WHERE SCREEN ===== */
 
 .where-screen {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: var(--main-menu-width) !important;
+  height: 100vh !important;
   background: white;
   padding: 2rem;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 2;
+  max-width: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .where-screen-content {
