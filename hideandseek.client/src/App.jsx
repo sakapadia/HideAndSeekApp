@@ -9,26 +9,10 @@ import './components/OAuthLogin.css';
 import { UserDisplay } from './components/UIComponents';
 
 // ===== CONFIGURATION =====
-// Google Maps API key is fetched from server endpoint /api/config/google-maps-api-key
-// Falls back to Vite env variable VITE_GOOGLE_MAPS_API_KEY for local development
+// Google Maps API key is read from Vite env: VITE_GOOGLE_MAPS_API_KEY
+// Create hideandseek.client/.env.local with: VITE_GOOGLE_MAPS_API_KEY=your_key_here
 // Docs: https://vitejs.dev/guide/env-and-mode.html
-const getGoogleMapsApiKey = async () => {
-  // First try to get from server (for production)
-  try {
-    const response = await fetch('/api/config/google-maps-api-key');
-    if (response.ok) {
-      const data = await response.json();
-      if (data.apiKey) {
-        return data.apiKey;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to fetch API key from server, using environment variable:', error);
-  }
-  
-  // Fallback to environment variable (for local development)
-  return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
-};
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
 
 // ===== UTILITY FUNCTIONS =====
 // Function to create translucent red circles based on blast radius
@@ -103,7 +87,6 @@ function App() {
 
   // Google Maps state
   const [mapsLoaded, setMapsLoaded] = useState(false);
-  const [mapsApiKeyAvailable, setMapsApiKeyAvailable] = useState(true); // Assume available until we check
   const [persistentMap, setPersistentMap] = useState(null);
 
   // Upvote state - track which reports the user has upvoted
@@ -422,22 +405,16 @@ function App() {
     const initializeMaps = async () => {
       console.log('Initializing Google Maps...');
       
-      // Fetch API key from server (or use environment variable as fallback)
-      const apiKey = await getGoogleMapsApiKey();
-      
-      if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
+      if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
         console.warn('Google Maps API key not configured. Please add your API key to use the map feature.');
-        setMapsApiKeyAvailable(false);
         return;
       }
-
-      setMapsApiKeyAvailable(true);
 
       try {
         // Loading Google Maps API...
         const { Loader } = await import('@googlemaps/js-api-loader');
         const loader = new Loader({
-          apiKey: apiKey,
+          apiKey: GOOGLE_MAPS_API_KEY,
           version: 'weekly',
           libraries: ['places', 'marker']
         });
@@ -1067,7 +1044,7 @@ function App() {
                 textAlign: 'center',
                 padding: '2rem'
               }}>
-                {!mapsApiKeyAvailable 
+                {GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY' 
                   ? '🗺️ Google Maps API key not configured'
                   : '🗺️ Loading Google Maps...'
                 }
@@ -1152,7 +1129,7 @@ function App() {
         </div>
 
         {/* Center on Me Button for Main Menu */}
-        {userInfo.isLoggedIn && persistentMap && (
+        {/* {userInfo.isLoggedIn && persistentMap && (
           <div style={{
             position: 'fixed',
             top: '120px',
@@ -1178,7 +1155,7 @@ function App() {
               📍 Center on Me
             </button>
           </div>
-        )}
+        )} */}
         
         {/* Show OAuth login if not logged in, otherwise show main menu */}
         {!userInfo.isLoggedIn ? (
@@ -1323,6 +1300,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Marker state tracking for incremental updates
   const [displayedReportIds, setDisplayedReportIds] = useState(new Set());
   const [cachedReports, setCachedReports] = useState([]);
+  const [availableCategories, setAvailableCategories] = useState([]);
   
   // Refs are now defined in the main App component
 
@@ -1363,6 +1341,16 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       fetchNoiseReports(map);
     }
   }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, filters.timePeriods, filters.startDate, filters.endDate, map]);
+
+  // Clean up stale selected filter categories when available categories change
+  useEffect(() => {
+    if (filters.categories.length > 0) {
+      const validCategories = filters.categories.filter(c => availableCategories.includes(c));
+      if (validCategories.length !== filters.categories.length) {
+        setFilters(prev => ({ ...prev, categories: validCategories }));
+      }
+    }
+  }, [availableCategories]);
 
   // Initialize the map when mapsLoaded becomes true
   useEffect(() => {
@@ -1805,6 +1793,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     try {
       // Updating markers incrementally
       
+      // Extract unique categories from the raw reports
+      const categories = [...new Set(
+        (newReports || [])
+          .map(r => r.noiseType || r.NoiseType)
+          .filter(Boolean)
+      )].sort();
+      setAvailableCategories(categories);
+
       // Apply filters to the new reports
       const filteredReports = applyFilters(newReports || [], filtersRef.current);
       // Filtered reports based on current filters
@@ -2250,7 +2246,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             <div className="filter-section">
               <h4>Noise Categories</h4>
               <div className="category-filters">
-                {['Traffic', 'Construction', 'Fireworks', 'Protests', 'Sports', 'Other'].map(category => (
+                {availableCategories.map(category => (
                   <label key={category} className="category-filter-item">
                     <input
                       type="checkbox"
