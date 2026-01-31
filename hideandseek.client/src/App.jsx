@@ -521,6 +521,12 @@ function App() {
   // ===== MODE SWITCHING =====
   const switchToMapMode = () => {
     console.log('Switching to map mode');
+    // Clean up persistent map markers before switching
+    persistentMapMarkersRef.current.forEach(marker => {
+      if (marker.setMap) marker.setMap(null);
+    });
+    persistentMapMarkersRef.current = [];
+    setPersistentMap(null);
     setCurrentMode('map');
   };
 
