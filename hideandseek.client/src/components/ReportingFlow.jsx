@@ -505,6 +505,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }
 
     // Submit to the comprehensive endpoint
+    console.log('ReportingFlow: Submitting report with categorySpecificData:', reportSubmission.categorySpecificData);
+    console.log('ReportingFlow: Full reportSubmission:', reportSubmission);
+
     const response = await fetch('/api/noisereports/comprehensive', {
       method: 'POST',
       headers: {

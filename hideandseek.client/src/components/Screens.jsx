@@ -1646,9 +1646,15 @@ export const CategoryDetailsScreen = ({
   const fieldConfig = selectedCategory ? getFieldConfig(selectedCategory) : null;
   const hierarchy = selectedCategory ? getCategoryHierarchy(selectedCategory) : null;
 
+  console.log('CategoryDetailsScreen: selectedCategory:', selectedCategory);
+  console.log('CategoryDetailsScreen: hierarchy:', hierarchy);
+  console.log('CategoryDetailsScreen: fieldConfig:', fieldConfig);
+  console.log('CategoryDetailsScreen: categorySpecificData:', categorySpecificData);
+
   // If no specific fields for this category, auto-skip to next screen
   React.useEffect(() => {
     if (!fieldConfig || fieldConfig.fields.length === 0) {
+      console.log('CategoryDetailsScreen: Auto-skipping - no fields configured');
       onNext();
     }
   }, [fieldConfig, onNext]);
@@ -1659,10 +1665,13 @@ export const CategoryDetailsScreen = ({
   }
 
   const updateField = (fieldName, value) => {
-    onCategorySpecificDataChange({
+    const newData = {
       ...categorySpecificData,
       [fieldName]: value
-    });
+    };
+    console.log('CategoryDetailsScreen: Updating field:', fieldName, 'to:', value);
+    console.log('CategoryDetailsScreen: New categorySpecificData:', newData);
+    onCategorySpecificDataChange(newData);
   };
 
   // Check if required fields are filled
