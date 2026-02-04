@@ -105,7 +105,7 @@ export const ChipsList = ({ id, title, items, selectedItems = [], onItemClick, c
 );
 
 /**
- * Search bar component
+ * Search bar component with autocomplete support
  */
 export const SearchBar = ({ 
   id, 
@@ -113,20 +113,51 @@ export const SearchBar = ({
   description, 
   value, 
   onChange, 
+  suggestions = [],
+  onSuggestionClick,
+  showSuggestions = false,
   className = "" 
-}) => (
-  <div className={`search-bar ${className}`}>
-    <input
-      id={id}
-      type="text"
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      className="search-input"
-    />
-    {description && <p className="search-description">{description}</p>}
-  </div>
-);
+}) => {
+  const handleInputChange = (e) => {
+    // Pass the event object to maintain compatibility
+    onChange?.(e);
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    onSuggestionClick?.(suggestion);
+  };
+
+  return (
+    <div className={`search-bar ${className}`}>
+      <div className="search-input-wrapper">
+        <input
+          id={id}
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInputChange}
+          className="search-input"
+          autoComplete="off"
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="search-suggestions">
+            {suggestions.map((suggestion, index) => (
+              <button
+                key={index}
+                type="button"
+                className="search-suggestion-item"
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {description && <p className="search-description">{description}</p>}
+    </div>
+  );
+};
 
 /**
  * Map component wrapper

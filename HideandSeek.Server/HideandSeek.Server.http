@@ -1,6 +1,6 @@
 @HideandSeek.Server_HostAddress = http://localhost:5264
 
-GET {{HideandSeek.Server_HostAddress}}/weatherforecast/
-Accept: application/json
+# API Test Endpoints
+# Add your API test requests here
 
 ###

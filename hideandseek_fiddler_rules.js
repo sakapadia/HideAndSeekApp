@@ -31,12 +31,6 @@ static function OnBeforeRequest(oSession: Session) {
         oSession["ui-bold"] = "true";
     }
     
-    // Highlight weather API calls
-    if (oSession.url.Contains("/weatherforecast")) {
-        oSession["ui-color"] = "purple";
-        oSession["ui-bold"] = "true";
-    }
-    
     // Log important requests to Fiddler's log
     if (oSession.url.Contains("/api/")) {
         FiddlerObject.log("🔍 Hide and Seek API Call: " + oSession.url);
@@ -77,8 +71,6 @@ static function OnBeforeRequest(oSession: Session) {
         m_RequestType = "Reports";
     } else if (oSession.url.Contains("/api/users/")) {
         m_RequestType = "Users";
-    } else if (oSession.url.Contains("/weatherforecast")) {
-        m_RequestType = "Weather";
     } else if (oSession.host.Contains("localhost:5264") || oSession.host.Contains("localhost:50696")) {
         m_RequestType = "App";
     } else {

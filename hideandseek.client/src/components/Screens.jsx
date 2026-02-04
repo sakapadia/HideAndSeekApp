@@ -171,45 +171,574 @@ export const WhatScreen = ({
   noiseLevel = 5,
   description = ''
 }) => {
-  // Popular noise categories
-  const popularCategories = [
-    "Fireworks",
-    "Protests", 
-    "Sports",
-    "Construction"
+  // Master Event & Occurrence Directory - Hide & Seek Taxonomy v1
+  // Comprehensive list of all categories from the master taxonomy
+  const allCategories = [
+    // 1. Celebrations, Entertainment & Gatherings
+    // 1.1 Holidays & Cultural Celebrations
+    "Fireworks (legal displays)",
+    "Fireworks (illegal / residential)",
+    "Holiday parades",
+    "Street celebrations",
+    "Cultural festivals",
+    "Religious observances",
+    "Seasonal markets (Christmas markets, holiday bazaars)",
+    "New Year's celebrations",
+    "Independence / national day events",
+    "Pride events",
+    "Ethnic heritage festivals",
+    // 1.2 Music, Arts & Performance
+    "Concerts (indoor)",
+    "Concerts (outdoor)",
+    "Music festivals",
+    "Street performers / buskers",
+    "Theater performances",
+    "Film festivals",
+    "Outdoor movie nights",
+    "Art walks / gallery nights",
+    // 1.3 Sports & Recreation
+    "Professional sports games",
+    "College sports games",
+    "High school sports events",
+    "Marathons / races",
+    "Fun runs / charity walks",
+    "E-sports tournaments",
+    "Recreational leagues",
+    "Extreme sports events",
+    // 1.4 Fairs, Expos & Conventions
+    "County fairs",
+    "State fairs",
+    "Trade shows",
+    "Comic / fan conventions",
+    "Auto shows",
+    "Home & garden expos",
+    "Food & wine festivals",
+    "Tech conferences",
+    "Career fairs",
+    // 2. Traffic, Transportation & Infrastructure
+    // 2.1 Road & Traffic Conditions
+    "Traffic congestion",
+    "Accidents (minor)",
+    "Accidents (major)",
+    "Vehicle breakdowns",
+    "Disabled vehicles",
+    "Road rage incidents",
+    "DUI checkpoints",
+    // 2.2 Road Closures & Restrictions
+    "Planned road closures",
+    "Emergency road closures",
+    "Construction detours",
+    "Event-related closures",
+    "Police barricades",
+    "Motorcade routes (VIP / politicians)",
+    "Bridge closures",
+    "Tunnel closures",
+    // 2.3 Construction & Maintenance
+    "Road construction",
+    "Utility work",
+    "Sidewalk closures",
+    "Lane reductions",
+    "Night construction",
+    "Infrastructure upgrades",
+    "Noise-producing maintenance",
+    // 2.4 Public Transit & Travel
+    "Transit delays",
+    "Transit shutdowns",
+    "Bus reroutes",
+    "Train disruptions",
+    "Airport delays",
+    "Airport congestion",
+    "TSA/security backups",
+    "Port or ferry disruptions",
+    // 3. Public Safety, Hazards & Emergencies
+    // 3.1 Weather & Natural Events
+    "Heavy rain",
+    "Flooding",
+    "Flash flooding",
+    "Snowstorms",
+    "Ice storms",
+    "Extreme heat",
+    "Extreme cold",
+    "High winds",
+    "Wildfires",
+    "Smoke / poor air quality",
+    "Earthquakes",
+    "Landslides",
+    "Hurricanes / tropical storms",
+    "Tornado sightings",
+    // 3.2 Environmental Hazards
+    "Fallen trees",
+    "Downed power lines",
+    "Gas leaks",
+    "Chemical spills",
+    "Oil spills",
+    "Radiation alerts",
+    "Water contamination",
+    "Sinkholes",
+    // 3.3 Crime & Police Activity
+    "Police presence (general)",
+    "Active police investigation",
+    "Crime scene",
+    "Shots fired reports",
+    "Armed suspect reports",
+    "Robbery incidents",
+    "Assault reports",
+    "Carjacking incidents",
+    "Police chases",
+    "SWAT activity",
+    "Curfews",
+    // 4. Protests, Civil Unrest & Political Activity
+    // 4.1 Organized Protests & Demonstrations
+    "Peaceful protests",
+    "Marches",
+    "Rallies",
+    "Sit-ins",
+    "Strikes",
+    "Labor picket lines",
+    // 4.2 Escalated Civil Unrest
+    "Riots",
+    "Looting",
+    "Vandalism",
+    "Property destruction",
+    "Fires / arson",
+    "Crowd violence",
+    "Tear gas deployment",
+    "Crowd control actions",
+    // 4.3 Political Events
+    "Political rallies",
+    "Campaign events",
+    "Inaugurations",
+    "Town halls",
+    "Debates",
+    "Visiting dignitaries",
+    "Government announcements",
+    // 5. Public Nuisances & Quality-of-Life Issues
+    // 5.1 Noise & Disturbances
+    "Illegal fireworks",
+    "Loud parties",
+    "Nighttime noise",
+    "Street racing",
+    "Revving engines",
+    "Car alarms",
+    "Construction noise (off-hours)",
+    "Barking dogs",
+    "Loudspeakers / megaphones",
+    // 5.2 Cleanliness & Environmental Nuisances
+    "Trash dumping (illegal)",
+    "Litter accumulation",
+    "Overflowing dumpsters",
+    "Abandoned furniture",
+    "Abandoned shopping carts",
+    "Construction debris",
+    "Glass on roadway",
+    "Needles / syringes",
+    "Human waste",
+    "Animal waste",
+    "Dead animals",
+    // 5.3 Graffiti & Vandalism
+    "Graffiti (new)",
+    "Graffiti (recurring hotspot)",
+    "Property damage",
+    "Broken windows",
+    "Defaced signs",
+    "Tagging activity",
+    "Damaged public art",
+    // 5.4 Homelessness-Related Encounters
+    "Homeless encampments",
+    "Temporary encampments",
+    "Encampment cleanup activity",
+    "Sidewalk obstructions",
+    "RV dwellers",
+    "Tent clusters",
+    "Fires within encampments",
+    "Accumulated debris",
+    // 5.5 Aggressive or Disruptive Behavior
+    "Panhandlers / beggars",
+    "Aggressive panhandling",
+    "Harassment reports",
+    "Intoxicated individuals",
+    "Public drug use",
+    "Public drinking",
+    "Fights / altercations",
+    "Mental health crises (public)",
+    // 6. Health & Biohazards
+    // 6.1 Biological & Sanitation Risks
+    "Human waste",
+    "Blood spills",
+    "Medical waste",
+    "Syringes / needles",
+    "Vomit",
+    "Dead animals",
+    "Pest infestations",
+    "Rodent sightings",
+    "Insect swarms",
+    // 6.2 Public Health Alerts
+    "Disease outbreaks",
+    "Quarantine zones",
+    "Health department warnings",
+    "Food safety alerts",
+    "Contaminated water notices",
+    "Smoke advisories",
+    "Heat advisories",
+    // 7. Animals & Wildlife
+    // 7.1 Domestic Animal Issues
+    "Loose dogs",
+    "Aggressive dogs",
+    "Dog attacks",
+    "Lost pets",
+    "Found pets",
+    "Animal control activity",
+    "Dogs playing",
+    // 7.2 Wildlife Encounters
+    "Coyotes",
+    "Bears",
+    "Mountain lions",
+    "Alligators",
+    "Snakes",
+    "Raccoons",
+    "Skunks",
+    "Birds of prey",
+    "Swarms (bees, locusts)",
+    // 7.3 Animal-Related Hazards
+    "Roadkill",
+    "Animal on roadway",
+    "Injured wildlife",
+    "Nesting hazards",
+    "Animal-induced traffic issues",
+    // 8. Commerce, Services & Crowd Density
+    // 8.1 Retail & Business Conditions
+    "Store openings",
+    "Store closures",
+    "Long lines",
+    "Black Friday crowds",
+    "Sales events",
+    "Product shortages",
+    "Gas shortages",
+    "Panic buying",
+    // 8.2 Dining & Hospitality
+    "Restaurant openings",
+    "Restaurant closures",
+    "Long wait times",
+    "Food truck gatherings",
+    "Bar crawls",
+    "Happy hour hotspots",
+    // 8.3 Lodging & Travel
+    "Hotel availability spikes",
+    "Hotel shortages",
+    "Event-driven pricing surges",
+    "Airbnb saturation",
+    "Tourist influxes",
+    // 9. Community, Neighborhood & Social Events
+    // 9.1 Neighborhood Activities
+    "Block parties",
+    "Garage sales",
+    "Yard sales",
+    "Neighborhood meetings",
+    "HOA activities",
+    "Street cleanups",
+    // 9.2 Schools & Institutions
+    "School closures",
+    "School events",
+    "Graduations",
+    "Campus protests",
+    "Exams / move-in days",
+    // 9.3 Religious & Faith-Based Events
+    "Church services",
+    "Large congregations",
+    "Pilgrimages",
+    "Processions",
+    "Faith festivals",
+    // 10. "Other" / Emerging / AI-Discovered Categories
+    "Unclassified events",
+    "Emerging trends",
+    "New nuisances",
+    "New celebration types",
+    "Location-specific anomalies",
+    "Other"
   ];
 
-  // Suggested categories (same as popular for now)
-  const suggestedCategories = [
-    "Fireworks",
-    "Protests",
-    "Sports", 
-    "Construction"
-  ];
-  const recentSearches = ["Loud neighbors", "Street noise", "Construction site"];
+  // Filter categories based on search input
+  const getFilteredCategories = () => {
+    if (!searchValue || searchValue.trim().length === 0) {
+      return [];
+    }
+    const searchLower = searchValue.toLowerCase().trim();
+    return allCategories.filter(category => 
+      category.toLowerCase().includes(searchLower)
+    ).slice(0, 10); // Limit to 10 suggestions
+  };
+
+  const filteredCategories = getFilteredCategories();
+  const showSuggestions = searchValue.trim().length > 0 && filteredCategories.length > 0;
 
   // Noise level suggestions based on category
+  // Maps categories to typical noise level ranges
   const getNoiseLevelSuggestion = (category) => {
     const suggestions = {
-      "Noise": "Typical: 6-8/10",
-      "Traffic": "Typical: 4-6/10", 
-      "Construction": "Typical: 7-9/10",
-      "Party": "Typical: 8-10/10",
-      "Music": "Typical: 5-8/10",
-      "Industrial": "Typical: 7-9/10",
-      "Animals": "Typical: 3-6/10",
-      "Events": "Typical: 6-8/10",
-      "Sports": "Typical: 5-7/10"
+      // Celebrations, Entertainment & Gatherings
+      "Fireworks (legal displays)": "Typical: 8-10/10",
+      "Fireworks (illegal / residential)": "Typical: 8-10/10",
+      "Holiday parades": "Typical: 6-8/10",
+      "Street celebrations": "Typical: 7-9/10",
+      "Cultural festivals": "Typical: 6-8/10",
+      "Religious observances": "Typical: 4-7/10",
+      "Seasonal markets (Christmas markets, holiday bazaars)": "Typical: 5-7/10",
+      "New Year's celebrations": "Typical: 8-10/10",
+      "Independence / national day events": "Typical: 7-9/10",
+      "Pride events": "Typical: 6-8/10",
+      "Ethnic heritage festivals": "Typical: 6-8/10",
+      "Concerts (indoor)": "Typical: 7-9/10",
+      "Concerts (outdoor)": "Typical: 7-9/10",
+      "Music festivals": "Typical: 7-9/10",
+      "Street performers / buskers": "Typical: 4-6/10",
+      "Theater performances": "Typical: 3-5/10",
+      "Film festivals": "Typical: 3-5/10",
+      "Outdoor movie nights": "Typical: 5-7/10",
+      "Art walks / gallery nights": "Typical: 3-5/10",
+      "Professional sports games": "Typical: 7-9/10",
+      "College sports games": "Typical: 6-8/10",
+      "High school sports events": "Typical: 5-7/10",
+      "Marathons / races": "Typical: 5-7/10",
+      "Fun runs / charity walks": "Typical: 4-6/10",
+      "E-sports tournaments": "Typical: 4-6/10",
+      "Recreational leagues": "Typical: 4-6/10",
+      "Extreme sports events": "Typical: 6-8/10",
+      "County fairs": "Typical: 6-8/10",
+      "State fairs": "Typical: 7-9/10",
+      "Trade shows": "Typical: 4-6/10",
+      "Comic / fan conventions": "Typical: 5-7/10",
+      "Auto shows": "Typical: 4-6/10",
+      "Home & garden expos": "Typical: 4-6/10",
+      "Food & wine festivals": "Typical: 5-7/10",
+      "Tech conferences": "Typical: 4-6/10",
+      "Career fairs": "Typical: 4-5/10",
+      // Traffic, Transportation & Infrastructure
+      "Traffic congestion": "Typical: 4-6/10",
+      "Accidents (minor)": "Typical: 5-7/10",
+      "Accidents (major)": "Typical: 7-9/10",
+      "Vehicle breakdowns": "Typical: 3-5/10",
+      "Disabled vehicles": "Typical: 3-4/10",
+      "Road rage incidents": "Typical: 6-8/10",
+      "DUI checkpoints": "Typical: 4-6/10",
+      "Planned road closures": "Typical: 3-5/10",
+      "Emergency road closures": "Typical: 6-8/10",
+      "Construction detours": "Typical: 4-6/10",
+      "Event-related closures": "Typical: 5-7/10",
+      "Police barricades": "Typical: 6-8/10",
+      "Motorcade routes (VIP / politicians)": "Typical: 6-8/10",
+      "Bridge closures": "Typical: 4-6/10",
+      "Tunnel closures": "Typical: 4-6/10",
+      "Road construction": "Typical: 6-8/10",
+      "Utility work": "Typical: 5-7/10",
+      "Sidewalk closures": "Typical: 3-4/10",
+      "Lane reductions": "Typical: 4-5/10",
+      "Night construction": "Typical: 6-8/10",
+      "Infrastructure upgrades": "Typical: 6-8/10",
+      "Noise-producing maintenance": "Typical: 5-7/10",
+      "Transit delays": "Typical: 3-5/10",
+      "Transit shutdowns": "Typical: 4-6/10",
+      "Bus reroutes": "Typical: 3-5/10",
+      "Train disruptions": "Typical: 5-7/10",
+      "Airport delays": "Typical: 4-6/10",
+      "Airport congestion": "Typical: 5-7/10",
+      "TSA/security backups": "Typical: 4-6/10",
+      "Port or ferry disruptions": "Typical: 4-6/10",
+      // Public Safety, Hazards & Emergencies
+      "Heavy rain": "Typical: 3-5/10",
+      "Flooding": "Typical: 4-7/10",
+      "Flash flooding": "Typical: 5-8/10",
+      "Snowstorms": "Typical: 3-5/10",
+      "Ice storms": "Typical: 3-5/10",
+      "Extreme heat": "Typical: 2-4/10",
+      "Extreme cold": "Typical: 2-4/10",
+      "High winds": "Typical: 5-7/10",
+      "Wildfires": "Typical: 6-9/10",
+      "Smoke / poor air quality": "Typical: 2-4/10",
+      "Earthquakes": "Typical: 7-10/10",
+      "Landslides": "Typical: 6-8/10",
+      "Hurricanes / tropical storms": "Typical: 7-9/10",
+      "Tornado sightings": "Typical: 7-9/10",
+      "Fallen trees": "Typical: 5-7/10",
+      "Downed power lines": "Typical: 4-6/10",
+      "Gas leaks": "Typical: 3-6/10",
+      "Chemical spills": "Typical: 5-8/10",
+      "Oil spills": "Typical: 4-6/10",
+      "Radiation alerts": "Typical: 2-4/10",
+      "Water contamination": "Typical: 2-3/10",
+      "Sinkholes": "Typical: 5-7/10",
+      "Police presence (general)": "Typical: 5-7/10",
+      "Active police investigation": "Typical: 6-8/10",
+      "Crime scene": "Typical: 5-7/10",
+      "Shots fired reports": "Typical: 9-10/10",
+      "Armed suspect reports": "Typical: 7-9/10",
+      "Robbery incidents": "Typical: 6-8/10",
+      "Assault reports": "Typical: 6-8/10",
+      "Carjacking incidents": "Typical: 7-9/10",
+      "Police chases": "Typical: 8-10/10",
+      "SWAT activity": "Typical: 8-10/10",
+      "Curfews": "Typical: 3-5/10",
+      // Protests, Civil Unrest & Political Activity
+      "Peaceful protests": "Typical: 5-7/10",
+      "Marches": "Typical: 5-7/10",
+      "Rallies": "Typical: 6-8/10",
+      "Sit-ins": "Typical: 4-6/10",
+      "Strikes": "Typical: 5-7/10",
+      "Labor picket lines": "Typical: 5-7/10",
+      "Riots": "Typical: 8-10/10",
+      "Looting": "Typical: 7-9/10",
+      "Vandalism": "Typical: 5-7/10",
+      "Property destruction": "Typical: 6-8/10",
+      "Fires / arson": "Typical: 7-9/10",
+      "Crowd violence": "Typical: 8-10/10",
+      "Tear gas deployment": "Typical: 6-8/10",
+      "Crowd control actions": "Typical: 7-9/10",
+      "Political rallies": "Typical: 6-8/10",
+      "Campaign events": "Typical: 5-7/10",
+      "Inaugurations": "Typical: 7-9/10",
+      "Town halls": "Typical: 4-6/10",
+      "Debates": "Typical: 4-6/10",
+      "Visiting dignitaries": "Typical: 6-8/10",
+      "Government announcements": "Typical: 4-6/10",
+      // Public Nuisances & Quality-of-Life Issues
+      "Illegal fireworks": "Typical: 8-10/10",
+      "Loud parties": "Typical: 8-10/10",
+      "Nighttime noise": "Typical: 5-8/10",
+      "Street racing": "Typical: 7-9/10",
+      "Revving engines": "Typical: 6-8/10",
+      "Car alarms": "Typical: 8-10/10",
+      "Construction noise (off-hours)": "Typical: 7-9/10",
+      "Barking dogs": "Typical: 4-7/10",
+      "Loudspeakers / megaphones": "Typical: 7-9/10",
+      "Trash dumping (illegal)": "Typical: 2-4/10",
+      "Litter accumulation": "Typical: 2-3/10",
+      "Overflowing dumpsters": "Typical: 2-4/10",
+      "Abandoned furniture": "Typical: 2-3/10",
+      "Abandoned shopping carts": "Typical: 2-3/10",
+      "Construction debris": "Typical: 3-5/10",
+      "Glass on roadway": "Typical: 2-3/10",
+      "Needles / syringes": "Typical: 2-3/10",
+      "Human waste": "Typical: 2-3/10",
+      "Animal waste": "Typical: 2-3/10",
+      "Dead animals": "Typical: 2-3/10",
+      "Graffiti (new)": "Typical: 2-3/10",
+      "Graffiti (recurring hotspot)": "Typical: 2-3/10",
+      "Property damage": "Typical: 3-5/10",
+      "Broken windows": "Typical: 3-4/10",
+      "Defaced signs": "Typical: 2-3/10",
+      "Tagging activity": "Typical: 2-3/10",
+      "Damaged public art": "Typical: 3-4/10",
+      "Homeless encampments": "Typical: 3-5/10",
+      "Temporary encampments": "Typical: 3-5/10",
+      "Encampment cleanup activity": "Typical: 4-6/10",
+      "Sidewalk obstructions": "Typical: 3-4/10",
+      "RV dwellers": "Typical: 3-5/10",
+      "Tent clusters": "Typical: 3-4/10",
+      "Fires within encampments": "Typical: 5-7/10",
+      "Accumulated debris": "Typical: 2-4/10",
+      "Panhandlers / beggars": "Typical: 2-4/10",
+      "Aggressive panhandling": "Typical: 4-6/10",
+      "Harassment reports": "Typical: 4-6/10",
+      "Intoxicated individuals": "Typical: 4-6/10",
+      "Public drug use": "Typical: 3-5/10",
+      "Public drinking": "Typical: 3-5/10",
+      "Fights / altercations": "Typical: 6-8/10",
+      "Mental health crises (public)": "Typical: 5-7/10",
+      // Health & Biohazards
+      "Blood spills": "Typical: 3-4/10",
+      "Medical waste": "Typical: 2-3/10",
+      "Vomit": "Typical: 2-3/10",
+      "Pest infestations": "Typical: 2-4/10",
+      "Rodent sightings": "Typical: 2-3/10",
+      "Insect swarms": "Typical: 3-5/10",
+      "Disease outbreaks": "Typical: 2-4/10",
+      "Quarantine zones": "Typical: 3-5/10",
+      "Health department warnings": "Typical: 2-3/10",
+      "Food safety alerts": "Typical: 2-3/10",
+      "Contaminated water notices": "Typical: 2-3/10",
+      "Smoke advisories": "Typical: 2-4/10",
+      "Heat advisories": "Typical: 2-3/10",
+      // Animals & Wildlife
+      "Loose dogs": "Typical: 3-5/10",
+      "Aggressive dogs": "Typical: 5-7/10",
+      "Dog attacks": "Typical: 6-8/10",
+      "Lost pets": "Typical: 2-3/10",
+      "Found pets": "Typical: 2-3/10",
+      "Animal control activity": "Typical: 4-6/10",
+      "Dogs playing": "Typical: 3-5/10",
+      "Coyotes": "Typical: 3-5/10",
+      "Bears": "Typical: 4-6/10",
+      "Mountain lions": "Typical: 4-6/10",
+      "Alligators": "Typical: 3-5/10",
+      "Snakes": "Typical: 2-4/10",
+      "Raccoons": "Typical: 3-4/10",
+      "Skunks": "Typical: 3-4/10",
+      "Birds of prey": "Typical: 3-4/10",
+      "Swarms (bees, locusts)": "Typical: 4-6/10",
+      "Roadkill": "Typical: 2-4/10",
+      "Animal on roadway": "Typical: 4-6/10",
+      "Injured wildlife": "Typical: 3-5/10",
+      "Nesting hazards": "Typical: 2-4/10",
+      "Animal-induced traffic issues": "Typical: 4-6/10",
+      // Commerce, Services & Crowd Density
+      "Store openings": "Typical: 4-6/10",
+      "Store closures": "Typical: 2-3/10",
+      "Long lines": "Typical: 3-5/10",
+      "Black Friday crowds": "Typical: 6-8/10",
+      "Sales events": "Typical: 5-7/10",
+      "Product shortages": "Typical: 2-3/10",
+      "Gas shortages": "Typical: 3-5/10",
+      "Panic buying": "Typical: 5-7/10",
+      "Restaurant openings": "Typical: 4-6/10",
+      "Restaurant closures": "Typical: 2-3/10",
+      "Long wait times": "Typical: 3-4/10",
+      "Food truck gatherings": "Typical: 5-7/10",
+      "Bar crawls": "Typical: 7-9/10",
+      "Happy hour hotspots": "Typical: 6-8/10",
+      "Hotel availability spikes": "Typical: 2-3/10",
+      "Hotel shortages": "Typical: 2-3/10",
+      "Event-driven pricing surges": "Typical: 2-3/10",
+      "Airbnb saturation": "Typical: 2-3/10",
+      "Tourist influxes": "Typical: 4-6/10",
+      // Community, Neighborhood & Social Events
+      "Block parties": "Typical: 6-8/10",
+      "Garage sales": "Typical: 3-5/10",
+      "Yard sales": "Typical: 3-5/10",
+      "Neighborhood meetings": "Typical: 3-4/10",
+      "HOA activities": "Typical: 3-4/10",
+      "Street cleanups": "Typical: 4-6/10",
+      "School closures": "Typical: 2-3/10",
+      "School events": "Typical: 4-6/10",
+      "Graduations": "Typical: 6-8/10",
+      "Campus protests": "Typical: 5-7/10",
+      "Exams / move-in days": "Typical: 4-6/10",
+      "Church services": "Typical: 3-5/10",
+      "Large congregations": "Typical: 5-7/10",
+      "Pilgrimages": "Typical: 5-7/10",
+      "Processions": "Typical: 5-7/10",
+      "Faith festivals": "Typical: 5-7/10",
+      // Other
+      "Unclassified events": "Select a category for suggestions",
+      "Emerging trends": "Select a category for suggestions",
+      "New nuisances": "Select a category for suggestions",
+      "New celebration types": "Select a category for suggestions",
+      "Location-specific anomalies": "Select a category for suggestions",
+      "Other": "Select a category for suggestions"
     };
     return suggestions[category] || "Select a category for suggestions";
   };
 
-  const handleCategoryClick = (category) => {
-    onCategorySelect(category);
+  const handleSearchChange = (e) => {
+    // Extract value from event if it's an event object, otherwise use as-is
+    const value = e && e.target ? e.target.value : (typeof e === 'string' ? e : '');
+    onSearchChange(value);
   };
 
-  const handleSearchChange = (e) => {
-    onSearchChange(e.target.value);
+  const handleSuggestionClick = (category) => {
+    onCategorySelect(category);
+    // Clear search after selection - pass empty string directly
+    if (onSearchChange) {
+      onSearchChange('');
+    }
   };
 
   const handleNoiseLevelChange = (e) => {
@@ -228,37 +757,38 @@ export const WhatScreen = ({
       <ProgressBar progress={progress} />
       <Heading text="What are you reporting?" level={2} />
       
-      <ChipsList
-        id="popularCategories"
-        title="Popular Categories"
-        items={popularCategories}
-        selectedItems={selectedCategories}
-        onItemClick={handleCategoryClick}
-      />
-      
-      <ChipsList
-        id="suggestedCategories"
-        title="Suggested Categories"
-        items={suggestedCategories}
-        selectedItems={selectedCategories}
-        onItemClick={handleCategoryClick}
-      />
-      
-      <ChipsList
-        id="recentSearches"
-        title="Recent Searches"
-        items={recentSearches}
-        selectedItems={selectedCategories}
-        onItemClick={handleCategoryClick}
-      />
-      
       <SearchBar
         id="categorySearch"
-        placeholder="Search for something…"
-        description="Type or speak what you're reporting; AI will match top 2–3 categories."
+        placeholder="Type to search for a category (e.g., 'fire', 'construction', 'music')…"
+        description="Type the type of event or noise you want to report. Matching categories will appear below."
         value={searchValue}
         onChange={handleSearchChange}
+        suggestions={filteredCategories}
+        onSuggestionClick={handleSuggestionClick}
+        showSuggestions={showSuggestions}
       />
+
+      {/* Show selected categories */}
+      {selectedCategories.length > 0 && (
+        <div className="selected-categories">
+          <h3 className="section-title">Selected Categories</h3>
+          <div className="selected-categories-list">
+            {selectedCategories.map((category, index) => (
+              <span key={index} className="selected-category-chip">
+                {category}
+                <button
+                  type="button"
+                  className="remove-category-btn"
+                  onClick={() => onCategorySelect(category)}
+                  aria-label={`Remove ${category}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Description Section */}
       <div className="description-section">

@@ -234,10 +234,12 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   const handleSearchChange = (value) => {
+    // Handle both string values and event objects
+    const searchValue = typeof value === 'string' ? value : (value?.target?.value || '');
     setReportData(prev => ({
       ...prev,
-      searchValue: value,
-      description: value // Store for review screen
+      searchValue: searchValue,
+      // Don't overwrite description with search value - they're separate fields
     }));
   };
 

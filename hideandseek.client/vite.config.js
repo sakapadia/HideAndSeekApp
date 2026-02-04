@@ -26,11 +26,6 @@ export default defineConfig({
                 target,
                 secure: false,
                 changeOrigin: true
-            },
-            '^/weatherforecast': {
-                target,
-                secure: false,
-                changeOrigin: true
             }
         },
         port: parseInt(env.DEV_SERVER_PORT || '50696'),
