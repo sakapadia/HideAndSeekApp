@@ -343,6 +343,12 @@ public class NoiseReportsController : ControllerBase
                 report.SetMediaFilesList(reportRequest.MediaFiles);
             }
 
+            // Set category-specific data
+            if (reportRequest.CategorySpecificData != null && reportRequest.CategorySpecificData.Count > 0)
+            {
+                report.SetCategorySpecificData(reportRequest.CategorySpecificData);
+            }
+
             // Set partition key to ZIP code if provided, otherwise determine from coordinates
             if (!string.IsNullOrEmpty(report.ZipCode))
             {
@@ -484,7 +490,8 @@ public class NoiseReportsController : ControllerBase
                 Upvotes = report.Upvotes,
                 CustomDate = report.CustomDate ?? string.Empty,
                 RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
-                CustomSlots = report.CustomSlots ?? string.Empty
+                CustomSlots = report.CustomSlots ?? string.Empty,
+                CategorySpecificData = report.CategorySpecificData ?? string.Empty
             }).ToList();
 
             return Ok(reportDtos);

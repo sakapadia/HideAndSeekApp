@@ -3,6 +3,7 @@ import {
   PreLoginScreen,
   MainMenuScreen,
   WhatScreen,
+  CategoryDetailsScreen,
   WhereScreen,
   WhenScreen,
   RecurrenceScreen,
@@ -19,6 +20,7 @@ const SCREENS = {
   PRE_LOGIN: 'PreLogin',
   MAIN_MENU: 'MainMenu',
   WHAT: 'What',
+  CATEGORY_DETAILS: 'CategoryDetails',
   WHERE: 'Where',
   WHEN: 'When',
   RECURRENCE: 'Recurrence',
@@ -80,9 +82,12 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     customSlots: [],
     isRecurring: false,
     
+    // Category details screen data
+    categorySpecificData: {},
+
     // Recurrence screen data
     recurrenceConfig: {},
-    
+
     // Media screen data
     mediaFiles: [],
     
@@ -106,6 +111,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PRE_LOGIN,
       SCREENS.MAIN_MENU,
       SCREENS.WHAT,
+      SCREENS.CATEGORY_DETAILS,
       SCREENS.WHERE,
       SCREENS.WHEN,
       SCREENS.RECURRENCE,
@@ -115,17 +121,17 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PAYMENT_FORM,
       SCREENS.CONFIRMATION
     ];
-    
+
     const currentIndex = screenOrder.indexOf(currentScreen);
     if (currentIndex < screenOrder.length - 1) {
       const nextScreen = screenOrder[currentIndex + 1];
-      
+
       // Skip recurrence screen if not recurring
       if (currentScreen === SCREENS.WHEN && !reportData.isRecurring) {
         setCurrentScreen(SCREENS.MEDIA);
         return;
       }
-      
+
       // Skip payment screens for regular reports (non-organizers)
       if (userType !== 'organizer' && (nextScreen === SCREENS.PAYMENT || nextScreen === SCREENS.PAYMENT_FORM)) {
         setCurrentScreen(SCREENS.CONFIRMATION);
@@ -140,6 +146,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PRE_LOGIN,
       SCREENS.MAIN_MENU,
       SCREENS.WHAT,
+      SCREENS.CATEGORY_DETAILS,
       SCREENS.WHERE,
       SCREENS.WHEN,
       SCREENS.RECURRENCE,
@@ -149,17 +156,17 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PAYMENT_FORM,
       SCREENS.CONFIRMATION
     ];
-    
+
     const currentIndex = screenOrder.indexOf(currentScreen);
     if (currentIndex > 0) {
       const previousScreen = screenOrder[currentIndex - 1];
-      
+
       // Skip recurrence screen when going back if not recurring
       if (currentScreen === SCREENS.MEDIA && !reportData.isRecurring) {
         setCurrentScreen(SCREENS.WHEN);
         return;
       }
-      
+
       setCurrentScreen(previousScreen);
     }
   };
@@ -254,6 +261,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     setReportData(prev => ({
       ...prev,
       description: description
+    }));
+  };
+
+  // ===== CATEGORY DETAILS SCREEN HANDLERS =====
+
+  const handleCategorySpecificDataChange = (data) => {
+    setReportData(prev => ({
+      ...prev,
+      categorySpecificData: data
     }));
   };
 
@@ -391,6 +407,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case 'noiseLevel':
         setCurrentScreen(SCREENS.WHAT);
         break;
+      case 'categoryDetails':
+        setCurrentScreen(SCREENS.CATEGORY_DETAILS);
+        break;
       case 'contact':
         // Could navigate to a contact screen or stay on review
         break;
@@ -458,7 +477,10 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       customSlots: reportData.customSlots || [],
       isRecurring: reportData.isRecurring || false,
       recurrenceConfig: reportData.recurrenceConfig || {},
-      
+
+      // Category-specific data
+      categorySpecificData: reportData.categorySpecificData || {},
+
       // Media and contact
       mediaFiles: reportData.mediaFiles || [],
       reporterName: reportData.reporterName || '',
@@ -516,6 +538,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
+      categorySpecificData: {},
       streetAddress: '',
       city: '',
       zipCode: '',
@@ -575,6 +598,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       category: '',
       description: '',
       noiseLevel: 5,
+      categorySpecificData: {},
       streetAddress: '',
       city: '',
       zipCode: '',
@@ -645,10 +669,21 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
             description={reportData.description}
           />
         );
+      case SCREENS.CATEGORY_DETAILS:
+        return (
+          <CategoryDetailsScreen
+            progress={20}
+            reportData={reportData}
+            onCategorySpecificDataChange={handleCategorySpecificDataChange}
+            onNext={goToNext}
+            onBack={goToPrevious}
+            onCancel={handleCancel}
+          />
+        );
       case SCREENS.WHERE:
         return (
           <WhereScreen
-            progress={30}
+            progress={35}
             streetAddress={reportData.streetAddress}
             city={reportData.city}
             state={reportData.state}
@@ -667,7 +702,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.WHEN:
         return (
           <WhenScreen
-            progress={40}
+            progress={50}
             timeOption={reportData.timeOption}
             customDate={reportData.customDate}
             customSlots={reportData.customSlots}
@@ -685,7 +720,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.RECURRENCE:
         return (
           <RecurrenceScreen
-            progress={50}
+            progress={60}
             recurrenceConfig={reportData.recurrenceConfig}
             onRecurrenceChange={handleRecurrenceChange}
             onNext={goToNext}
@@ -696,7 +731,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.MEDIA:
         return (
           <MediaScreen
-            progress={60}
+            progress={70}
             mediaFiles={reportData.mediaFiles}
             onPickFromDevice={handlePickFromDevice}
             onUseCamera={handleUseCamera}
@@ -709,7 +744,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.REVIEW:
         return (
           <ReviewScreen
-            progress={80}
+            progress={85}
             reportData={reportData}
             onEdit={handleReviewEdit}
             onConfirm={handleConfirm}

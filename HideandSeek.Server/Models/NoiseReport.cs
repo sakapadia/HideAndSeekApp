@@ -226,6 +226,12 @@ public class NoiseReport : ITableEntity
     /// </summary>
     public string UpvotedBy { get; set; } = string.Empty;
 
+    /// <summary>
+    /// JSON-serialized category-specific data collected from the dynamic form.
+    /// Contains fields specific to the selected noise category/subcategory.
+    /// </summary>
+    public string CategorySpecificData { get; set; } = string.Empty;
+
     // ===== HELPER METHODS =====
 
     /// <summary>
@@ -375,11 +381,37 @@ public class NoiseReport : ITableEntity
         var upvotedBy = GetUpvotedByList();
         if (upvotedBy.Contains(userId))
             return false;
-        
+
         upvotedBy.Add(userId);
         SetUpvotedByList(upvotedBy);
         Upvotes++;
         return true;
+    }
+
+    /// <summary>
+    /// Gets the category-specific data as a dictionary.
+    /// </summary>
+    public Dictionary<string, object> GetCategorySpecificData()
+    {
+        if (string.IsNullOrEmpty(CategorySpecificData))
+            return new Dictionary<string, object>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(CategorySpecificData) ?? new Dictionary<string, object>();
+        }
+        catch
+        {
+            return new Dictionary<string, object>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the category-specific data from a dictionary.
+    /// </summary>
+    public void SetCategorySpecificData(Dictionary<string, object> data)
+    {
+        CategorySpecificData = JsonSerializer.Serialize(data);
     }
 
     // ===== COMMENT MANAGEMENT METHODS =====

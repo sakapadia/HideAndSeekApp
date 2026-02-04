@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Heading, Text } from './UIComponents';
+import { getCategoryHierarchy, getFieldConfig } from './Screens';
 import './UserProfile.css';
 
 /**
@@ -164,6 +165,42 @@ export const UserProfile = ({
     if (level <= 3) return '#4CAF50'; // Green
     if (level <= 6) return '#FF9800'; // Orange
     return '#F44336'; // Red
+  };
+
+  // Parse category-specific data from JSON string
+  const parseCategorySpecificData = (report) => {
+    if (!report.categorySpecificData) return null;
+
+    try {
+      // If it's already an object, use it directly
+      if (typeof report.categorySpecificData === 'object') {
+        return report.categorySpecificData;
+      }
+      // If it's a string, parse it
+      return JSON.parse(report.categorySpecificData);
+    } catch (e) {
+      console.error('Error parsing category specific data:', e);
+      return null;
+    }
+  };
+
+  // Get field label from config
+  const getFieldLabel = (fieldName, category) => {
+    const fieldConfig = getFieldConfig(category);
+    if (fieldConfig) {
+      const field = fieldConfig.fields.find(f => f.name === fieldName);
+      if (field) return field.label;
+    }
+    // Fallback: convert camelCase to Title Case
+    return fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
+  // Format category-specific value for display
+  const formatCategoryValue = (value) => {
+    if (value === true) return 'Yes';
+    if (value === false) return 'No';
+    if (value === null || value === undefined || value === '') return null;
+    return String(value);
   };
 
   if (userInfo.isGuest) {
@@ -367,14 +404,14 @@ export const UserProfile = ({
                     <div className="report-header">
                       <div className="report-meta">
                         <span className="report-date">{formatDate(report.reportDate)}</span>
-                        <span 
+                        <span
                           className="noise-level-badge"
                           style={{ backgroundColor: getNoiseLevelColor(report.noiseLevel) }}
                         >
                           Level {report.noiseLevel}
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleDeleteReport(report.id)}
                         className="delete-report-btn"
                         title="Delete Report"
@@ -388,6 +425,32 @@ export const UserProfile = ({
                       <div className="report-location">
                         📍 {report.address || `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`}
                       </div>
+                      {/* Category-Specific Details */}
+                      {(() => {
+                        const categoryData = parseCategorySpecificData(report);
+                        if (!categoryData || Object.keys(categoryData).length === 0) return null;
+
+                        const hierarchy = getCategoryHierarchy(report.noiseType);
+                        return (
+                          <div className="report-category-details">
+                            <div className="category-details-header">
+                              {hierarchy?.sub || 'Additional'} Details
+                            </div>
+                            <div className="category-details-list">
+                              {Object.entries(categoryData).map(([key, value]) => {
+                                const formattedValue = formatCategoryValue(value);
+                                if (formattedValue === null) return null;
+                                return (
+                                  <div key={key} className="category-detail-item">
+                                    <span className="detail-label">{getFieldLabel(key, report.noiseType)}:</span>
+                                    <span className="detail-value">{formattedValue}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="report-footer">
                       <span className="points-earned">+{report.pointsAwarded} points</span>

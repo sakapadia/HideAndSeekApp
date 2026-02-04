@@ -171,4 +171,10 @@ public class NoiseReportDto
     /// Custom time slots for noise reports (JSON string).
     /// </summary>
     public string CustomSlots { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Category-specific data for the noise report (JSON string).
+    /// Contains additional fields based on the selected category/subcategory.
+    /// </summary>
+    public string CategorySpecificData { get; set; } = string.Empty;
 } 

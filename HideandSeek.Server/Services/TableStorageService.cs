@@ -154,7 +154,8 @@ public class TableStorageService : ITableStorageService
                                 Upvotes = report.Upvotes,
                                 CustomDate = report.CustomDate ?? string.Empty,
                                 RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
-                                CustomSlots = report.CustomSlots ?? string.Empty
+                                CustomSlots = report.CustomSlots ?? string.Empty,
+                                CategorySpecificData = report.CategorySpecificData ?? string.Empty
                             });
                             totalCount++;
                         }

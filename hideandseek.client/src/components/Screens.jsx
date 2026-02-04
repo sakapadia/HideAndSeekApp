@@ -862,6 +862,870 @@ export const WhatScreen = ({
   );
 };
 
+// ===== CATEGORY FIELDS CONFIGURATION =====
+// Field configurations for all 30 subcategories
+
+const CATEGORY_FIELDS = {
+  // 1. Celebrations, Entertainment & Gatherings
+  "Celebrations, Entertainment & Gatherings": {
+    "Holidays & Cultural Celebrations": {
+      fields: [
+        { name: "estimatedCrowdSize", label: "Estimated Crowd Size", type: "select",
+          options: ["Under 50", "50-200", "200-500", "500-1000", "1000+"], required: false },
+        { name: "hasAmplifiedSound", label: "Amplified Sound?", type: "boolean", required: false },
+        { name: "permitStatus", label: "Permit Status", type: "select",
+          options: ["Permitted", "Not Permitted", "Unknown"], required: false },
+        { name: "expectedDuration", label: "Expected Duration (hours)", type: "number", required: false },
+        { name: "roadBlocked", label: "Road Blocked?", type: "boolean", required: false }
+      ]
+    },
+    "Music, Arts & Performance": {
+      fields: [
+        { name: "venueName", label: "Venue Name", type: "text", required: false },
+        { name: "artistName", label: "Artist/Performer", type: "text", required: false },
+        { name: "genreType", label: "Genre", type: "select",
+          options: ["Rock", "Pop", "Electronic", "Classical", "Jazz", "Hip-Hop", "Country", "Other"], required: false },
+        { name: "amplificationLevel", label: "Sound Level", type: "select",
+          options: ["Low", "Medium", "High", "Festival-Grade"], required: false },
+        { name: "expectedEndTime", label: "Expected End Time", type: "time", required: false }
+      ]
+    },
+    "Sports & Recreation": {
+      fields: [
+        { name: "teamOrEventName", label: "Team/Event Name", type: "text", required: false },
+        { name: "sportType", label: "Sport Type", type: "select",
+          options: ["Football", "Baseball", "Basketball", "Hockey", "Soccer", "Running", "Cycling", "Other"], required: false },
+        { name: "expectedAttendance", label: "Expected Attendance", type: "number", required: false },
+        { name: "tailgatingPresent", label: "Tailgating Present?", type: "boolean", required: false },
+        { name: "parkingImpact", label: "Parking Impact", type: "select",
+          options: ["None", "Minor", "Moderate", "Severe"], required: false }
+      ]
+    },
+    "Fairs, Expos & Conventions": {
+      fields: [
+        { name: "eventName", label: "Event Name", type: "text", required: false },
+        { name: "ridesPresent", label: "Rides Present?", type: "boolean", required: false },
+        { name: "liveEntertainment", label: "Live Entertainment?", type: "boolean", required: false },
+        { name: "expectedDailyAttendance", label: "Expected Daily Attendance", type: "number", required: false },
+        { name: "operatingHours", label: "Operating Hours", type: "text", required: false }
+      ]
+    }
+  },
+  // 2. Traffic, Transportation & Infrastructure
+  "Traffic, Transportation & Infrastructure": {
+    "Road & Traffic Conditions": {
+      fields: [
+        { name: "congestionLevel", label: "Congestion Level", type: "select",
+          options: ["Light", "Moderate", "Heavy", "Gridlock"], required: false },
+        { name: "lanesAffected", label: "Lanes Affected", type: "number", required: false },
+        { name: "estimatedDelayMinutes", label: "Estimated Delay (minutes)", type: "number", required: false },
+        { name: "alternateRouteAvailable", label: "Alternate Route Available?", type: "boolean", required: false }
+      ]
+    },
+    "Road Closures & Restrictions": {
+      fields: [
+        { name: "closureReason", label: "Closure Reason", type: "text", required: false },
+        { name: "detourRoute", label: "Detour Route", type: "text", required: false },
+        { name: "fullOrPartialClosure", label: "Closure Type", type: "select",
+          options: ["Full", "Partial"], required: false },
+        { name: "expectedReopenTime", label: "Expected Reopen Time", type: "time", required: false },
+        { name: "localAccessOnly", label: "Local Access Only?", type: "boolean", required: false }
+      ]
+    },
+    "Construction & Maintenance": {
+      fields: [
+        { name: "constructionType", label: "Construction Type", type: "select",
+          options: ["Repaving", "Expansion", "Repair", "Utility", "Other"], required: false },
+        { name: "heavyEquipmentInUse", label: "Heavy Equipment In Use?", type: "boolean", required: false },
+        { name: "nightWorkScheduled", label: "Night Work Scheduled?", type: "boolean", required: false },
+        { name: "estimatedCompletionDate", label: "Estimated Completion Date", type: "date", required: false },
+        { name: "jackhammering", label: "Jackhammering?", type: "boolean", required: false }
+      ]
+    },
+    "Public Transit & Travel": {
+      fields: [
+        { name: "transitType", label: "Transit Type", type: "select",
+          options: ["Bus", "Train", "Subway", "Light Rail", "Airport", "Ferry"], required: false },
+        { name: "routeOrLineAffected", label: "Route/Line Affected", type: "text", required: false },
+        { name: "delayMinutes", label: "Delay (minutes)", type: "number", required: false },
+        { name: "alternativeServiceAvailable", label: "Alternative Service Available?", type: "boolean", required: false }
+      ]
+    }
+  },
+  // 3. Public Safety, Hazards & Emergencies
+  "Public Safety, Hazards & Emergencies": {
+    "Weather & Natural Events": {
+      fields: [
+        { name: "severityLevel", label: "Severity Level", type: "select",
+          options: ["Minor", "Moderate", "Severe", "Extreme"], required: false },
+        { name: "evacuationStatus", label: "Evacuation Status", type: "select",
+          options: ["None", "Advisory", "Mandatory"], required: false },
+        { name: "expectedDuration", label: "Expected Duration", type: "text", required: false },
+        { name: "visibilityImpact", label: "Visibility Impact?", type: "boolean", required: false },
+        { name: "powerOutages", label: "Power Outages?", type: "boolean", required: false }
+      ]
+    },
+    "Environmental Hazards": {
+      fields: [
+        { name: "hazardType", label: "Hazard Type", type: "select",
+          options: ["Fallen Tree", "Power Lines", "Gas Leak", "Chemical Spill", "Sinkhole", "Other"], required: false },
+        { name: "areaSecured", label: "Area Secured?", type: "boolean", required: false },
+        { name: "emergencyServicesOnScene", label: "Emergency Services On Scene?", type: "boolean", required: false },
+        { name: "evacuationRadius", label: "Evacuation Radius", type: "text", required: false }
+      ]
+    },
+    "Crime & Police Activity": {
+      fields: [
+        { name: "policePresenceLevel", label: "Police Presence Level", type: "select",
+          options: ["Light", "Moderate", "Heavy", "SWAT"], required: false },
+        { name: "areaSecured", label: "Area Secured?", type: "boolean", required: false },
+        { name: "shelterInPlace", label: "Shelter In Place?", type: "boolean", required: false },
+        { name: "estimatedDuration", label: "Estimated Duration", type: "text", required: false },
+        { name: "mediaPresent", label: "Media Present?", type: "boolean", required: false }
+      ]
+    }
+  },
+  // 4. Protests, Civil Unrest & Political Activity
+  "Protests, Civil Unrest & Political Activity": {
+    "Organized Protests & Demonstrations": {
+      fields: [
+        { name: "cause", label: "Cause/Topic", type: "text", required: false },
+        { name: "estimatedCrowdSize", label: "Estimated Crowd Size", type: "number", required: false },
+        { name: "permitStatus", label: "Permit Status", type: "select",
+          options: ["Permitted", "Not Permitted", "Unknown"], required: false },
+        { name: "counterProtestersPresent", label: "Counter-Protesters Present?", type: "boolean", required: false },
+        { name: "policePresent", label: "Police Present?", type: "boolean", required: false }
+      ]
+    },
+    "Escalated Civil Unrest": {
+      fields: [
+        { name: "escalationLevel", label: "Escalation Level", type: "select",
+          options: ["Tense", "Active Conflict", "Dangerous"], required: false },
+        { name: "propertyDamageObserved", label: "Property Damage Observed?", type: "boolean", required: false },
+        { name: "injuriesReported", label: "Injuries Reported?", type: "boolean", required: false },
+        { name: "policeResponseLevel", label: "Police Response Level", type: "select",
+          options: ["None", "Present", "Active", "Overwhelming"], required: false },
+        { name: "avoidanceRadius", label: "Avoidance Radius", type: "text", required: false }
+      ]
+    },
+    "Political Events": {
+      fields: [
+        { name: "eventType", label: "Event Type", type: "select",
+          options: ["Rally", "Campaign", "Inauguration", "Town Hall", "Debate", "VIP Visit"], required: false },
+        { name: "dignitaryName", label: "Dignitary Name", type: "text", required: false },
+        { name: "securityLevel", label: "Security Level", type: "select",
+          options: ["Normal", "Elevated", "High", "Maximum"], required: false },
+        { name: "streetClosures", label: "Street Closures?", type: "boolean", required: false },
+        { name: "expectedAttendance", label: "Expected Attendance", type: "number", required: false }
+      ]
+    }
+  },
+  // 5. Public Nuisances & Quality-of-Life Issues
+  "Public Nuisances & Quality-of-Life Issues": {
+    "Noise & Disturbances": {
+      fields: [
+        { name: "noiseSource", label: "Noise Source", type: "select",
+          options: ["Music", "Engines", "Construction", "Animals", "Voices", "Other"], required: false },
+        { name: "frequencyPattern", label: "Frequency Pattern", type: "select",
+          options: ["Occasional", "Frequent", "Constant"], required: false },
+        { name: "previouslyReported", label: "Previously Reported?", type: "boolean", required: false },
+        { name: "sourceIdentifiable", label: "Source Identifiable?", type: "boolean", required: false }
+      ]
+    },
+    "Cleanliness & Environmental Nuisances": {
+      fields: [
+        { name: "contaminationType", label: "Contamination Type", type: "select",
+          options: ["Trash", "Debris", "Waste", "Needles", "Other"], required: false },
+        { name: "hazardLevel", label: "Hazard Level", type: "select",
+          options: ["Low", "Moderate", "High"], required: false },
+        { name: "quantityEstimate", label: "Quantity Estimate", type: "select",
+          options: ["Small", "Moderate", "Large", "Major"], required: false },
+        { name: "odorPresent", label: "Odor Present?", type: "boolean", required: false }
+      ]
+    },
+    "Graffiti & Vandalism": {
+      fields: [
+        { name: "vandalismType", label: "Vandalism Type", type: "select",
+          options: ["Graffiti", "Property Damage", "Broken Windows", "Other"], required: false },
+        { name: "offensiveContent", label: "Offensive Content?", type: "boolean", required: false },
+        { name: "estimatedDamage", label: "Estimated Damage", type: "select",
+          options: ["Minor", "Moderate", "Significant", "Major"], required: false },
+        { name: "recurringLocation", label: "Recurring Location?", type: "boolean", required: false }
+      ]
+    },
+    "Homelessness-Related Encounters": {
+      fields: [
+        { name: "encampmentSize", label: "Encampment Size", type: "select",
+          options: ["Single Person", "Small Group", "Large Camp"], required: false },
+        { name: "blockingSidewalk", label: "Blocking Sidewalk?", type: "boolean", required: false },
+        { name: "debrisPresent", label: "Debris Present?", type: "boolean", required: false },
+        { name: "fireHazardPresent", label: "Fire Hazard Present?", type: "boolean", required: false },
+        { name: "assistanceNeeded", label: "Assistance Needed?", type: "boolean", required: false }
+      ]
+    },
+    "Aggressive or Disruptive Behavior": {
+      fields: [
+        { name: "behaviorType", label: "Behavior Type", type: "select",
+          options: ["Verbal", "Following", "Threatening", "Physical"], required: false },
+        { name: "personCount", label: "Number of People", type: "number", required: false },
+        { name: "intoxicationSuspected", label: "Intoxication Suspected?", type: "boolean", required: false },
+        { name: "weaponsObserved", label: "Weapons Observed?", type: "boolean", required: false },
+        { name: "immediateThreat", label: "Immediate Threat?", type: "boolean", required: false }
+      ]
+    }
+  },
+  // 6. Health & Biohazards
+  "Health & Biohazards": {
+    "Biological & Sanitation Risks": {
+      fields: [
+        { name: "biohazardType", label: "Biohazard Type", type: "select",
+          options: ["Blood", "Needles", "Waste", "Medical", "Dead Animal", "Pests"], required: false },
+        { name: "hazardSize", label: "Hazard Size", type: "select",
+          options: ["Small", "Moderate", "Large"], required: false },
+        { name: "professionalCleanupNeeded", label: "Professional Cleanup Needed?", type: "boolean", required: false },
+        { name: "childrenAreaNearby", label: "Children's Area Nearby?", type: "boolean", required: false }
+      ]
+    },
+    "Public Health Alerts": {
+      fields: [
+        { name: "alertType", label: "Alert Type", type: "select",
+          options: ["Disease", "Contamination", "Air Quality", "Heat", "Other"], required: false },
+        { name: "officialAdvisory", label: "Official Advisory?", type: "boolean", required: false },
+        { name: "affectedArea", label: "Affected Area", type: "text", required: false },
+        { name: "precautionsRecommended", label: "Precautions Recommended", type: "text", required: false }
+      ]
+    }
+  },
+  // 7. Animals & Wildlife
+  "Animals & Wildlife": {
+    "Domestic Animal Issues": {
+      fields: [
+        { name: "animalType", label: "Animal Type", type: "select",
+          options: ["Dog", "Cat", "Other"], required: false },
+        { name: "behaviorObserved", label: "Behavior Observed", type: "select",
+          options: ["Friendly", "Scared", "Aggressive", "Unknown"], required: false },
+        { name: "ownerPresent", label: "Owner Present?", type: "boolean", required: false },
+        { name: "animalControlNeeded", label: "Animal Control Needed?", type: "boolean", required: false }
+      ]
+    },
+    "Wildlife Encounters": {
+      fields: [
+        { name: "wildlifeType", label: "Wildlife Type", type: "text", required: false },
+        { name: "behaviorObserved", label: "Behavior Observed", type: "select",
+          options: ["Passing Through", "Foraging", "Aggressive", "Injured"], required: false },
+        { name: "distanceFromHomes", label: "Distance From Homes", type: "select",
+          options: ["Near", "Moderate", "Far"], required: false },
+        { name: "wildlifeAgencyNotified", label: "Wildlife Agency Notified?", type: "boolean", required: false }
+      ]
+    },
+    "Animal-Related Hazards": {
+      fields: [
+        { name: "hazardType", label: "Hazard Type", type: "select",
+          options: ["Roadkill", "Animal on Road", "Injured Animal", "Nesting", "Other"], required: false },
+        { name: "trafficHazard", label: "Traffic Hazard?", type: "boolean", required: false },
+        { name: "removalNeeded", label: "Removal Needed?", type: "boolean", required: false }
+      ]
+    }
+  },
+  // 8. Commerce, Services & Crowd Density
+  "Commerce, Services & Crowd Density": {
+    "Retail & Business Conditions": {
+      fields: [
+        { name: "businessName", label: "Business Name", type: "text", required: false },
+        { name: "crowdLevel", label: "Crowd Level", type: "select",
+          options: ["Light", "Moderate", "Heavy", "Extreme"], required: false },
+        { name: "lineLength", label: "Line Length", type: "select",
+          options: ["Short", "Medium", "Long", "Around Block"], required: false },
+        { name: "parkingImpact", label: "Parking Impact?", type: "boolean", required: false }
+      ]
+    },
+    "Dining & Hospitality": {
+      fields: [
+        { name: "venueName", label: "Venue Name", type: "text", required: false },
+        { name: "waitTimeMinutes", label: "Wait Time (minutes)", type: "number", required: false },
+        { name: "outdoorSeating", label: "Outdoor Seating?", type: "boolean", required: false },
+        { name: "noiseLevel", label: "Noise Level", type: "select",
+          options: ["Normal", "Loud", "Very Loud"], required: false }
+      ]
+    },
+    "Lodging & Travel": {
+      fields: [
+        { name: "eventCausing", label: "Event Causing Impact", type: "text", required: false },
+        { name: "availabilityLevel", label: "Availability Level", type: "select",
+          options: ["Available", "Limited", "Very Limited", "Sold Out"], required: false },
+        { name: "priceImpact", label: "Price Impact", type: "select",
+          options: ["Normal", "Elevated", "Surge"], required: false }
+      ]
+    }
+  },
+  // 9. Community, Neighborhood & Social Events
+  "Community, Neighborhood & Social Events": {
+    "Neighborhood Activities": {
+      fields: [
+        { name: "eventType", label: "Event Type", type: "select",
+          options: ["Block Party", "Garage Sale", "Meeting", "Cleanup", "Other"], required: false },
+        { name: "streetsClosed", label: "Streets Closed?", type: "boolean", required: false },
+        { name: "permitStatus", label: "Permit Status", type: "select",
+          options: ["Permitted", "Not Permitted", "Unknown"], required: false },
+        { name: "expectedEndTime", label: "Expected End Time", type: "time", required: false }
+      ]
+    },
+    "Schools & Institutions": {
+      fields: [
+        { name: "institutionName", label: "Institution Name", type: "text", required: false },
+        { name: "eventType", label: "Event Type", type: "select",
+          options: ["Closure", "Sports", "Performance", "Graduation", "Protest", "Move-In"], required: false },
+        { name: "expectedAttendance", label: "Expected Attendance", type: "number", required: false },
+        { name: "trafficImpact", label: "Traffic Impact", type: "select",
+          options: ["None", "Minor", "Moderate", "Major"], required: false }
+      ]
+    },
+    "Religious & Faith-Based Events": {
+      fields: [
+        { name: "faithTradition", label: "Faith Tradition", type: "text", required: false },
+        { name: "eventType", label: "Event Type", type: "select",
+          options: ["Service", "Festival", "Procession", "Pilgrimage"], required: false },
+        { name: "expectedAttendance", label: "Expected Attendance", type: "number", required: false },
+        { name: "amplifiedSound", label: "Amplified Sound?", type: "boolean", required: false }
+      ]
+    }
+  },
+  // 10. Other / Emerging Categories
+  "Other / Emerging Categories": {
+    "Other/Unclassified": {
+      fields: [
+        { name: "detailedDescription", label: "Detailed Description", type: "textarea", required: true },
+        { name: "suggestedCategory", label: "Suggested Category", type: "text", required: false },
+        { name: "impactType", label: "Impact Type", type: "select",
+          options: ["Noise", "Traffic", "Safety", "Quality of Life", "Other"], required: false },
+        { name: "urgencyLevel", label: "Urgency Level", type: "select",
+          options: ["Low", "Medium", "High"], required: false }
+      ]
+    }
+  }
+};
+
+// Category hierarchy mapping - maps specific event types to their major/sub categories
+const CATEGORY_HIERARCHY = {
+  // 1. Celebrations, Entertainment & Gatherings
+  // 1.1 Holidays & Cultural Celebrations
+  "Fireworks (legal displays)": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Fireworks (illegal / residential)": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Holiday parades": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Street celebrations": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Cultural festivals": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Religious observances": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Seasonal markets (Christmas markets, holiday bazaars)": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "New Year's celebrations": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Independence / national day events": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Pride events": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  "Ethnic heritage festivals": { major: "Celebrations, Entertainment & Gatherings", sub: "Holidays & Cultural Celebrations" },
+  // 1.2 Music, Arts & Performance
+  "Concerts (indoor)": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Concerts (outdoor)": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Music festivals": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Street performers / buskers": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Theater performances": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Film festivals": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Outdoor movie nights": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  "Art walks / gallery nights": { major: "Celebrations, Entertainment & Gatherings", sub: "Music, Arts & Performance" },
+  // 1.3 Sports & Recreation
+  "Professional sports games": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "College sports games": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "High school sports events": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "Marathons / races": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "Fun runs / charity walks": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "E-sports tournaments": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "Recreational leagues": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  "Extreme sports events": { major: "Celebrations, Entertainment & Gatherings", sub: "Sports & Recreation" },
+  // 1.4 Fairs, Expos & Conventions
+  "County fairs": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "State fairs": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Trade shows": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Comic / fan conventions": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Auto shows": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Home & garden expos": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Food & wine festivals": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Tech conferences": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  "Career fairs": { major: "Celebrations, Entertainment & Gatherings", sub: "Fairs, Expos & Conventions" },
+  // 2. Traffic, Transportation & Infrastructure
+  // 2.1 Road & Traffic Conditions
+  "Traffic congestion": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "Accidents (minor)": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "Accidents (major)": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "Vehicle breakdowns": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "Disabled vehicles": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "Road rage incidents": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  "DUI checkpoints": { major: "Traffic, Transportation & Infrastructure", sub: "Road & Traffic Conditions" },
+  // 2.2 Road Closures & Restrictions
+  "Planned road closures": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Emergency road closures": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Construction detours": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Event-related closures": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Police barricades": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Motorcade routes (VIP / politicians)": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Bridge closures": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  "Tunnel closures": { major: "Traffic, Transportation & Infrastructure", sub: "Road Closures & Restrictions" },
+  // 2.3 Construction & Maintenance
+  "Road construction": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Utility work": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Sidewalk closures": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Lane reductions": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Night construction": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Infrastructure upgrades": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  "Noise-producing maintenance": { major: "Traffic, Transportation & Infrastructure", sub: "Construction & Maintenance" },
+  // 2.4 Public Transit & Travel
+  "Transit delays": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Transit shutdowns": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Bus reroutes": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Train disruptions": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Airport delays": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Airport congestion": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "TSA/security backups": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  "Port or ferry disruptions": { major: "Traffic, Transportation & Infrastructure", sub: "Public Transit & Travel" },
+  // 3. Public Safety, Hazards & Emergencies
+  // 3.1 Weather & Natural Events
+  "Heavy rain": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Flooding": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Flash flooding": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Snowstorms": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Ice storms": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Extreme heat": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Extreme cold": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "High winds": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Wildfires": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Smoke / poor air quality": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Earthquakes": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Landslides": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Hurricanes / tropical storms": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  "Tornado sightings": { major: "Public Safety, Hazards & Emergencies", sub: "Weather & Natural Events" },
+  // 3.2 Environmental Hazards
+  "Fallen trees": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Downed power lines": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Gas leaks": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Chemical spills": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Oil spills": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Radiation alerts": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Water contamination": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  "Sinkholes": { major: "Public Safety, Hazards & Emergencies", sub: "Environmental Hazards" },
+  // 3.3 Crime & Police Activity
+  "Police presence (general)": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Active police investigation": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Crime scene": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Shots fired reports": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Armed suspect reports": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Robbery incidents": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Assault reports": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Carjacking incidents": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Police chases": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "SWAT activity": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  "Curfews": { major: "Public Safety, Hazards & Emergencies", sub: "Crime & Police Activity" },
+  // 4. Protests, Civil Unrest & Political Activity
+  // 4.1 Organized Protests & Demonstrations
+  "Peaceful protests": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  "Marches": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  "Rallies": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  "Sit-ins": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  "Strikes": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  "Labor picket lines": { major: "Protests, Civil Unrest & Political Activity", sub: "Organized Protests & Demonstrations" },
+  // 4.2 Escalated Civil Unrest
+  "Riots": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Looting": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Vandalism": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Property destruction": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Fires / arson": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Crowd violence": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Tear gas deployment": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  "Crowd control actions": { major: "Protests, Civil Unrest & Political Activity", sub: "Escalated Civil Unrest" },
+  // 4.3 Political Events
+  "Political rallies": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Campaign events": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Inaugurations": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Town halls": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Debates": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Visiting dignitaries": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  "Government announcements": { major: "Protests, Civil Unrest & Political Activity", sub: "Political Events" },
+  // 5. Public Nuisances & Quality-of-Life Issues
+  // 5.1 Noise & Disturbances
+  "Illegal fireworks": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Loud parties": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Nighttime noise": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Street racing": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Revving engines": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Car alarms": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Construction noise (off-hours)": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Barking dogs": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  "Loudspeakers / megaphones": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Noise & Disturbances" },
+  // 5.2 Cleanliness & Environmental Nuisances
+  "Trash dumping (illegal)": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Litter accumulation": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Overflowing dumpsters": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Abandoned furniture": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Abandoned shopping carts": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Construction debris": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Glass on roadway": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Needles / syringes": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Human waste": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Animal waste": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  "Dead animals": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Cleanliness & Environmental Nuisances" },
+  // 5.3 Graffiti & Vandalism
+  "Graffiti (new)": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Graffiti (recurring hotspot)": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Property damage": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Broken windows": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Defaced signs": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Tagging activity": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  "Damaged public art": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Graffiti & Vandalism" },
+  // 5.4 Homelessness-Related Encounters
+  "Homeless encampments": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Temporary encampments": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Encampment cleanup activity": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Sidewalk obstructions": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "RV dwellers": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Tent clusters": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Fires within encampments": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  "Accumulated debris": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Homelessness-Related Encounters" },
+  // 5.5 Aggressive or Disruptive Behavior
+  "Panhandlers / beggars": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Aggressive panhandling": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Harassment reports": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Intoxicated individuals": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Public drug use": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Public drinking": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Fights / altercations": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  "Mental health crises (public)": { major: "Public Nuisances & Quality-of-Life Issues", sub: "Aggressive or Disruptive Behavior" },
+  // 6. Health & Biohazards
+  // 6.1 Biological & Sanitation Risks (note: some overlap with 5.2)
+  "Blood spills": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  "Medical waste": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  "Vomit": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  "Pest infestations": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  "Rodent sightings": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  "Insect swarms": { major: "Health & Biohazards", sub: "Biological & Sanitation Risks" },
+  // 6.2 Public Health Alerts
+  "Disease outbreaks": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Quarantine zones": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Health department warnings": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Food safety alerts": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Contaminated water notices": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Smoke advisories": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  "Heat advisories": { major: "Health & Biohazards", sub: "Public Health Alerts" },
+  // 7. Animals & Wildlife
+  // 7.1 Domestic Animal Issues
+  "Loose dogs": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Aggressive dogs": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Dog attacks": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Lost pets": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Found pets": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Animal control activity": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  "Dogs playing": { major: "Animals & Wildlife", sub: "Domestic Animal Issues" },
+  // 7.2 Wildlife Encounters
+  "Coyotes": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Bears": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Mountain lions": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Alligators": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Snakes": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Raccoons": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Skunks": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Birds of prey": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  "Swarms (bees, locusts)": { major: "Animals & Wildlife", sub: "Wildlife Encounters" },
+  // 7.3 Animal-Related Hazards
+  "Roadkill": { major: "Animals & Wildlife", sub: "Animal-Related Hazards" },
+  "Animal on roadway": { major: "Animals & Wildlife", sub: "Animal-Related Hazards" },
+  "Injured wildlife": { major: "Animals & Wildlife", sub: "Animal-Related Hazards" },
+  "Nesting hazards": { major: "Animals & Wildlife", sub: "Animal-Related Hazards" },
+  "Animal-induced traffic issues": { major: "Animals & Wildlife", sub: "Animal-Related Hazards" },
+  // 8. Commerce, Services & Crowd Density
+  // 8.1 Retail & Business Conditions
+  "Store openings": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Store closures": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Long lines": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Black Friday crowds": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Sales events": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Product shortages": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Gas shortages": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  "Panic buying": { major: "Commerce, Services & Crowd Density", sub: "Retail & Business Conditions" },
+  // 8.2 Dining & Hospitality
+  "Restaurant openings": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  "Restaurant closures": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  "Long wait times": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  "Food truck gatherings": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  "Bar crawls": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  "Happy hour hotspots": { major: "Commerce, Services & Crowd Density", sub: "Dining & Hospitality" },
+  // 8.3 Lodging & Travel
+  "Hotel availability spikes": { major: "Commerce, Services & Crowd Density", sub: "Lodging & Travel" },
+  "Hotel shortages": { major: "Commerce, Services & Crowd Density", sub: "Lodging & Travel" },
+  "Event-driven pricing surges": { major: "Commerce, Services & Crowd Density", sub: "Lodging & Travel" },
+  "Airbnb saturation": { major: "Commerce, Services & Crowd Density", sub: "Lodging & Travel" },
+  "Tourist influxes": { major: "Commerce, Services & Crowd Density", sub: "Lodging & Travel" },
+  // 9. Community, Neighborhood & Social Events
+  // 9.1 Neighborhood Activities
+  "Block parties": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  "Garage sales": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  "Yard sales": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  "Neighborhood meetings": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  "HOA activities": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  "Street cleanups": { major: "Community, Neighborhood & Social Events", sub: "Neighborhood Activities" },
+  // 9.2 Schools & Institutions
+  "School closures": { major: "Community, Neighborhood & Social Events", sub: "Schools & Institutions" },
+  "School events": { major: "Community, Neighborhood & Social Events", sub: "Schools & Institutions" },
+  "Graduations": { major: "Community, Neighborhood & Social Events", sub: "Schools & Institutions" },
+  "Campus protests": { major: "Community, Neighborhood & Social Events", sub: "Schools & Institutions" },
+  "Exams / move-in days": { major: "Community, Neighborhood & Social Events", sub: "Schools & Institutions" },
+  // 9.3 Religious & Faith-Based Events
+  "Church services": { major: "Community, Neighborhood & Social Events", sub: "Religious & Faith-Based Events" },
+  "Large congregations": { major: "Community, Neighborhood & Social Events", sub: "Religious & Faith-Based Events" },
+  "Pilgrimages": { major: "Community, Neighborhood & Social Events", sub: "Religious & Faith-Based Events" },
+  "Processions": { major: "Community, Neighborhood & Social Events", sub: "Religious & Faith-Based Events" },
+  "Faith festivals": { major: "Community, Neighborhood & Social Events", sub: "Religious & Faith-Based Events" },
+  // 10. Other / Emerging Categories
+  "Unclassified events": { major: "Other / Emerging Categories", sub: "Other/Unclassified" },
+  "Emerging trends": { major: "Other / Emerging Categories", sub: "Other/Unclassified" },
+  "New nuisances": { major: "Other / Emerging Categories", sub: "Other/Unclassified" },
+  "New celebration types": { major: "Other / Emerging Categories", sub: "Other/Unclassified" },
+  "Location-specific anomalies": { major: "Other / Emerging Categories", sub: "Other/Unclassified" },
+  "Other": { major: "Other / Emerging Categories", sub: "Other/Unclassified" }
+};
+
+/**
+ * Helper function to get category hierarchy from a selected category
+ */
+const getCategoryHierarchy = (selectedCategory) => {
+  return CATEGORY_HIERARCHY[selectedCategory] || { major: "Other / Emerging Categories", sub: "Other/Unclassified" };
+};
+
+/**
+ * Helper function to get field configuration for a category
+ */
+const getFieldConfig = (selectedCategory) => {
+  const hierarchy = getCategoryHierarchy(selectedCategory);
+  return CATEGORY_FIELDS[hierarchy.major]?.[hierarchy.sub] || null;
+};
+
+/**
+ * Dynamic Field Component - Renders appropriate input based on field type
+ */
+const DynamicField = ({ field, value, onChange }) => {
+  const handleChange = (e) => {
+    let newValue;
+    if (field.type === 'boolean') {
+      newValue = e.target.checked;
+    } else if (field.type === 'number') {
+      newValue = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+    } else {
+      newValue = e.target.value;
+    }
+    onChange(newValue);
+  };
+
+  switch (field.type) {
+    case 'text':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <input
+            type="text"
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+          />
+        </div>
+      );
+
+    case 'number':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <input
+            type="number"
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+            min="0"
+          />
+        </div>
+      );
+
+    case 'select':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <select
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+          >
+            <option value="">Select...</option>
+            {field.options.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </div>
+      );
+
+    case 'boolean':
+      return (
+        <div className="dynamic-field dynamic-field-boolean">
+          <label>
+            <input
+              type="checkbox"
+              id={field.name}
+              checked={value || false}
+              onChange={handleChange}
+            />
+            {field.label}
+          </label>
+        </div>
+      );
+
+    case 'time':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <input
+            type="time"
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+          />
+        </div>
+      );
+
+    case 'date':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <input
+            type="date"
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+          />
+        </div>
+      );
+
+    case 'textarea':
+      return (
+        <div className="dynamic-field">
+          <label htmlFor={field.name}>{field.label}{field.required && ' *'}</label>
+          <textarea
+            id={field.name}
+            value={value || ''}
+            onChange={handleChange}
+            required={field.required}
+            rows={4}
+          />
+        </div>
+      );
+
+    default:
+      return null;
+  }
+};
+
+/**
+ * Category Details Screen - Dynamic fields based on selected category
+ */
+export const CategoryDetailsScreen = ({
+  progress = 20,
+  reportData = {},
+  onCategorySpecificDataChange,
+  onNext,
+  onBack,
+  onCancel
+}) => {
+  const selectedCategory = reportData.selectedCategories?.[0];
+  const categorySpecificData = reportData.categorySpecificData || {};
+
+  // Get field configuration for the selected category
+  const fieldConfig = selectedCategory ? getFieldConfig(selectedCategory) : null;
+  const hierarchy = selectedCategory ? getCategoryHierarchy(selectedCategory) : null;
+
+  // If no specific fields for this category, auto-skip to next screen
+  React.useEffect(() => {
+    if (!fieldConfig || fieldConfig.fields.length === 0) {
+      onNext();
+    }
+  }, [fieldConfig, onNext]);
+
+  // If no fields, show nothing (will auto-skip)
+  if (!fieldConfig || fieldConfig.fields.length === 0) {
+    return null;
+  }
+
+  const updateField = (fieldName, value) => {
+    onCategorySpecificDataChange({
+      ...categorySpecificData,
+      [fieldName]: value
+    });
+  };
+
+  // Check if required fields are filled
+  const requiredFieldsFilled = fieldConfig.fields
+    .filter(f => f.required)
+    .every(f => {
+      const val = categorySpecificData[f.name];
+      return val !== undefined && val !== null && val !== '';
+    });
+
+  const canProceed = requiredFieldsFilled;
+
+  return (
+    <div className="screen category-details-screen">
+      <ProgressBar progress={progress} />
+      <Heading text="Additional Details" level={2} />
+      <Text text={`Help us understand more about this ${hierarchy?.sub || 'report'}`} />
+
+      <div className="category-details-fields">
+        {fieldConfig.fields.map((field) => (
+          <DynamicField
+            key={field.name}
+            field={field}
+            value={categorySpecificData[field.name]}
+            onChange={(value) => updateField(field.name, value)}
+          />
+        ))}
+      </div>
+
+      <div className="screen-actions">
+        <Button
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
+          className="btn-secondary"
+        />
+        <Button
+          id="btnBack"
+          text="← Back"
+          onClick={onBack}
+          className="btn-secondary"
+        />
+        <Button
+          id="btnSkipDetails"
+          text="Skip"
+          onClick={onNext}
+          className="btn-secondary"
+        />
+        <Button
+          id="btnNextCategoryDetails"
+          text="NEXT →"
+          onClick={onNext}
+          disabled={!canProceed && fieldConfig.fields.some(f => f.required)}
+          className="btn-primary"
+        />
+      </div>
+    </div>
+  );
+};
+
+// Export the helper functions and configurations for use in other components
+export { CATEGORY_FIELDS, CATEGORY_HIERARCHY, getCategoryHierarchy, getFieldConfig };
+
 /**
  * Where Screen - Location selection
  */
@@ -1238,6 +2102,7 @@ export const ReviewScreen = ({
 }) => {
   const {
     category = '',
+    selectedCategories = [],
     location = '',
     timeOfDay = '',
     selectedDate = '',
@@ -1246,8 +2111,14 @@ export const ReviewScreen = ({
     description = '',
     noiseLevel = 5,
     reporterName = '',
-    contactEmail = ''
+    contactEmail = '',
+    categorySpecificData = {}
   } = reportData;
+
+  // Get field configuration for the selected category to display labels
+  const selectedCategory = selectedCategories[0] || category;
+  const fieldConfig = selectedCategory ? getFieldConfig(selectedCategory) : null;
+  const hierarchy = selectedCategory ? getCategoryHierarchy(selectedCategory) : null;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
@@ -1293,6 +2164,17 @@ export const ReviewScreen = ({
     if (!category) return 'Not specified';
     return category;
   };
+
+  const formatCategorySpecificValue = (value, fieldType) => {
+    if (value === undefined || value === null || value === '') return null;
+    if (fieldType === 'boolean') return value ? 'Yes' : 'No';
+    return String(value);
+  };
+
+  // Check if there's any category-specific data to display
+  const hasCategorySpecificData = Object.keys(categorySpecificData).some(
+    key => categorySpecificData[key] !== undefined && categorySpecificData[key] !== null && categorySpecificData[key] !== ''
+  );
 
   return (
     <div className="screen review-screen">
@@ -1376,11 +2258,37 @@ export const ReviewScreen = ({
             <div className="summary-item">
               <span className="summary-label">Noise Level:</span>
               <span className="summary-value">{noiseLevel}/10</span>
-              <button 
+              <button
                 className="edit-btn"
                 onClick={() => onEdit('noiseLevel')}
               >
                 Edit
+              </button>
+            </div>
+          )}
+
+          {/* Category-Specific Details Section */}
+          {hasCategorySpecificData && fieldConfig && (
+            <div className="summary-section category-specific-section">
+              <h3 className="section-title">
+                📝 {hierarchy?.sub || 'Category'} Details
+              </h3>
+              {fieldConfig.fields.map((field) => {
+                const value = formatCategorySpecificValue(categorySpecificData[field.name], field.type);
+                if (value === null) return null;
+                return (
+                  <div key={field.name} className="summary-item">
+                    <span className="summary-label">{field.label}:</span>
+                    <span className="summary-value">{value}</span>
+                  </div>
+                );
+              })}
+              <button
+                className="edit-btn"
+                onClick={() => onEdit('categoryDetails')}
+                style={{ marginTop: '10px' }}
+              >
+                Edit Details
               </button>
             </div>
           )}

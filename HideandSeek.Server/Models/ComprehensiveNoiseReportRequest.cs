@@ -127,6 +127,12 @@ public class ComprehensiveNoiseReportRequest
     /// </summary>
     public List<string>? MediaFiles { get; set; }
 
+    /// <summary>
+    /// Category-specific data collected from the dynamic form.
+    /// Contains fields specific to the selected noise category/subcategory.
+    /// </summary>
+    public Dictionary<string, object>? CategorySpecificData { get; set; }
+
     // ===== CONTACT INFORMATION =====
     
     /// <summary>
