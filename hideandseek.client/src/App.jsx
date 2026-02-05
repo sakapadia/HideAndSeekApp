@@ -7,6 +7,7 @@ import './components/ReportingFlow.css';
 import './components/UserProfile.css';
 import './components/OAuthLogin.css';
 import { UserDisplay } from './components/UIComponents';
+import { CATEGORY_FIELDS, CATEGORY_HIERARCHY } from './components/Screens';
 
 // ===== CONFIGURATION =====
 // Google Maps API key is read from Vite env: VITE_GOOGLE_MAPS_API_KEY
@@ -1307,7 +1308,33 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [displayedReportIds, setDisplayedReportIds] = useState(new Set());
   const [cachedReports, setCachedReports] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
-  
+  const [expandedFilterCategories, setExpandedFilterCategories] = useState({});
+
+  // Build the full category tree from CATEGORY_FIELDS (always shows all 10 main + 30 sub)
+  // Returns: { majorCat: { subCat: [noiseType1, noiseType2, ...], ... }, ... }
+  const categoryTree = React.useMemo(() => {
+    const tree = {};
+    for (const majorCat of Object.keys(CATEGORY_FIELDS)) {
+      tree[majorCat] = {};
+      for (const subCat of Object.keys(CATEGORY_FIELDS[majorCat])) {
+        tree[majorCat][subCat] = Object.entries(CATEGORY_HIERARCHY)
+          .filter(([, h]) => h.major === majorCat && h.sub === subCat)
+          .map(([noiseType]) => noiseType);
+      }
+    }
+    return tree;
+  }, []);
+
+  // Helper: get all noiseTypes for a main category
+  const getNoiseTypesForMainCategory = (majorCat) => {
+    return Object.values(categoryTree[majorCat] || {}).flat();
+  };
+
+  // Helper: get all noiseTypes for a subcategory
+  const getNoiseTypesForSubcategory = (majorCat, subCat) => {
+    return categoryTree[majorCat]?.[subCat] || [];
+  };
+
   // Refs are now defined in the main App component
 
   // Google Maps state is now handled in the main App component
@@ -1348,15 +1375,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }
   }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, filters.timePeriods, filters.startDate, filters.endDate, map]);
 
-  // Clean up stale selected filter categories when available categories change
-  useEffect(() => {
-    if (filters.categories.length > 0) {
-      const validCategories = filters.categories.filter(c => availableCategories.includes(c));
-      if (validCategories.length !== filters.categories.length) {
-        setFilters(prev => ({ ...prev, categories: validCategories }));
-      }
-    }
-  }, [availableCategories]);
+  // Note: No need to clean up stale categories - the hierarchical filter always
+  // shows all categories from CATEGORY_HIERARCHY. If selected categories have no
+  // matching reports, applyFilters simply filters them out.
 
   // Initialize the map when mapsLoaded becomes true
   useEffect(() => {
@@ -1653,12 +1674,39 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     }));
   };
 
-  const toggleCategory = (category) => {
-    setFilters(prev => ({
+  // Toggle all noiseTypes under a main category
+  const toggleMainCategory = (majorCat) => {
+    const noiseTypes = getNoiseTypesForMainCategory(majorCat);
+    setFilters(prev => {
+      const allSelected = noiseTypes.every(nt => prev.categories.includes(nt));
+      return {
+        ...prev,
+        categories: allSelected
+          ? prev.categories.filter(c => !noiseTypes.includes(c))
+          : [...new Set([...prev.categories, ...noiseTypes])]
+      };
+    });
+  };
+
+  // Toggle all noiseTypes under a subcategory
+  const toggleSubcategory = (majorCat, subCat) => {
+    const noiseTypes = getNoiseTypesForSubcategory(majorCat, subCat);
+    setFilters(prev => {
+      const allSelected = noiseTypes.every(nt => prev.categories.includes(nt));
+      return {
+        ...prev,
+        categories: allSelected
+          ? prev.categories.filter(c => !noiseTypes.includes(c))
+          : [...new Set([...prev.categories, ...noiseTypes])]
+      };
+    });
+  };
+
+  // Toggle expand/collapse for a main category in the filter UI
+  const toggleFilterCategoryExpand = (majorCat) => {
+    setExpandedFilterCategories(prev => ({
       ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter(c => c !== category)
-        : [...prev.categories, category]
+      [majorCat]: !prev[majorCat]
     }));
   };
 
@@ -1683,6 +1731,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       endDate: '',
       showFilters: false
     });
+    setExpandedFilterCategories({});
     
     // Refresh the map to show all reports within current bounds
     if (map && !isFetchingRef.current) {
@@ -2251,17 +2300,58 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             {/* Category Filter */}
             <div className="filter-section">
               <h4>Noise Categories</h4>
-              <div className="category-filters">
-                {availableCategories.map(category => (
-                  <label key={category} className="category-filter-item">
-                    <input
-                      type="checkbox"
-                      checked={filters.categories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                    />
-                    <span>{category}</span>
-                  </label>
-                ))}
+              <div className="category-filter-tree">
+                {Object.entries(categoryTree).map(([majorCat, subcats]) => {
+                  const allNoiseTypes = getNoiseTypesForMainCategory(majorCat);
+                  const selectedCount = allNoiseTypes.filter(nt => filters.categories.includes(nt)).length;
+                  const allSelected = allNoiseTypes.length > 0 && selectedCount === allNoiseTypes.length;
+                  const someSelected = selectedCount > 0 && !allSelected;
+                  const isExpanded = expandedFilterCategories[majorCat];
+
+                  return (
+                    <div key={majorCat} className="category-group">
+                      <div className="category-group-header">
+                        <label className="category-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={el => { if (el) el.indeterminate = someSelected; }}
+                            onChange={() => toggleMainCategory(majorCat)}
+                          />
+                          <span>{majorCat}</span>
+                        </label>
+                        <button
+                          className="category-expand-btn"
+                          onClick={() => toggleFilterCategoryExpand(majorCat)}
+                          title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                          {isExpanded ? '\u25BE' : '\u25B8'}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="category-subcategories">
+                          {Object.entries(subcats).map(([subCat, noiseTypes]) => {
+                            const subSelectedCount = noiseTypes.filter(nt => filters.categories.includes(nt)).length;
+                            const subAllSelected = noiseTypes.length > 0 && subSelectedCount === noiseTypes.length;
+                            const subSomeSelected = subSelectedCount > 0 && !subAllSelected;
+
+                            return (
+                              <label key={subCat} className="subcategory-item">
+                                <input
+                                  type="checkbox"
+                                  checked={subAllSelected}
+                                  ref={el => { if (el) el.indeterminate = subSomeSelected; }}
+                                  onChange={() => toggleSubcategory(majorCat, subCat)}
+                                />
+                                <span>{subCat}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2361,11 +2451,32 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             <div className="filter-summary">
               <h4>Active Filters</h4>
               <div className="active-filters">
-                {filters.categories.length > 0 && (
-                  <span className="active-filter-tag">
-                    Categories: {filters.categories.join(', ')}
-                  </span>
-                )}
+                {filters.categories.length > 0 && (() => {
+                  // Summarize selected categories by main/sub groups
+                  const summary = [];
+                  for (const [majorCat, subcats] of Object.entries(categoryTree)) {
+                    const allNT = getNoiseTypesForMainCategory(majorCat);
+                    const selectedNT = allNT.filter(nt => filters.categories.includes(nt));
+                    if (selectedNT.length === 0) continue;
+                    if (selectedNT.length === allNT.length) {
+                      summary.push(majorCat);
+                    } else {
+                      for (const [subCat, noiseTypes] of Object.entries(subcats)) {
+                        const subSelected = noiseTypes.filter(nt => filters.categories.includes(nt));
+                        if (subSelected.length === noiseTypes.length) {
+                          summary.push(subCat);
+                        } else if (subSelected.length > 0) {
+                          summary.push(`${subCat} (${subSelected.length}/${noiseTypes.length})`);
+                        }
+                      }
+                    }
+                  }
+                  return (
+                    <span className="active-filter-tag">
+                      Categories: {summary.join(', ')}
+                    </span>
+                  );
+                })()}
                 {(filters.minNoiseLevel > 1 || filters.maxNoiseLevel < 10) && (
                   <span className="active-filter-tag">
                     Noise Level: {filters.minNoiseLevel}-{filters.maxNoiseLevel}

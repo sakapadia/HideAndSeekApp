@@ -791,36 +791,107 @@ body {
   font-weight: 600;
 }
 
-/* Category Filters */
-.category-filters {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+/* Category Filter Tree */
+.category-filter-tree {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.25rem;
 }
 
-.category-filter-item {
+.category-group {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.category-group:last-child {
+  border-bottom: none;
+}
+
+.category-group-header {
   display: flex;
   align-items: center;
-  cursor: pointer;
-  padding: 0.5rem;
+  justify-content: space-between;
+  padding: 0.4rem 0.5rem;
   border-radius: 6px;
   transition: background-color 0.2s ease;
-  font-size: 0.85rem;
 }
 
-.category-filter-item:hover {
+.category-group-header:hover {
   background: #f8f9fa;
 }
 
-.category-filter-item input[type="checkbox"] {
+.category-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.82rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.category-checkbox input[type="checkbox"] {
   margin-right: 0.5rem;
   width: 16px;
   height: 16px;
   accent-color: #667eea;
+  flex-shrink: 0;
 }
 
-.category-filter-item span {
+.category-checkbox span {
   color: #333;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #888;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.category-expand-btn:hover {
+  color: #333;
+  background: #e9ecef;
+}
+
+.category-subcategories {
+  padding: 0.1rem 0 0.3rem 1.75rem;
+}
+
+.subcategory-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.subcategory-item:hover {
+  background: #f8f9fa;
+}
+
+.subcategory-item input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: 15px;
+  height: 15px;
+  accent-color: #667eea;
+  flex-shrink: 0;
+}
+
+.subcategory-item span {
+  color: #555;
   font-weight: 500;
 }
 

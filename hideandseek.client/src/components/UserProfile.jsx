@@ -69,8 +69,6 @@ export const UserProfile = ({
       });
       if (response.ok) {
         const reports = await response.json();
-        console.log('UserProfile: Raw reports from API:', reports);
-        console.log('UserProfile: First report categorySpecificData:', reports[0]?.categorySpecificData);
         setUserReports(reports);
       } else {
         setError('Failed to load user reports');
@@ -171,23 +169,15 @@ export const UserProfile = ({
 
   // Parse category-specific data from JSON string
   const parseCategorySpecificData = (report) => {
-    console.log('parseCategorySpecificData: Input report.categorySpecificData:', report.categorySpecificData, 'Type:', typeof report.categorySpecificData);
-
-    if (!report.categorySpecificData) {
-      console.log('parseCategorySpecificData: No data found, returning null');
-      return null;
-    }
+    if (!report.categorySpecificData) return null;
 
     try {
       // If it's already an object, use it directly
       if (typeof report.categorySpecificData === 'object') {
-        console.log('parseCategorySpecificData: Already an object:', report.categorySpecificData);
         return report.categorySpecificData;
       }
       // If it's a string, parse it
-      const parsed = JSON.parse(report.categorySpecificData);
-      console.log('parseCategorySpecificData: Parsed from string:', parsed);
-      return parsed;
+      return JSON.parse(report.categorySpecificData);
     } catch (e) {
       console.error('Error parsing category specific data:', e);
       return null;
