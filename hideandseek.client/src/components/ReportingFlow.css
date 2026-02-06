@@ -390,6 +390,151 @@
   border-radius: 0 0 8px 8px;
 }
 
+/* ===== CATEGORY BROWSER (Hierarchical Dropdown) ===== */
+.category-browser {
+  margin: 1.5rem 0;
+}
+
+.category-browser .section-title {
+  margin-bottom: 0.75rem;
+}
+
+.category-browser-tree {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.major-category {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.major-category:last-child {
+  border-bottom: none;
+}
+
+.major-category-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.2s ease;
+}
+
+.major-category-header:hover {
+  background: #f0f0f0;
+}
+
+.major-category-header.expanded {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.category-expand-icon {
+  margin-right: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.category-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subcategories-container {
+  background: #fff;
+  border-top: 1px solid #e8e8e8;
+}
+
+.subcategory-group {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.subcategory-group:last-child {
+  border-bottom: none;
+}
+
+.subcategory-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555;
+  transition: background-color 0.2s ease;
+}
+
+.subcategory-header:hover {
+  background: #f8f8f8;
+}
+
+.subcategory-header.expanded {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.subcategory-name {
+  flex: 1;
+}
+
+.event-count {
+  font-size: 0.75rem;
+  color: #888;
+  margin-left: 0.5rem;
+}
+
+.events-container {
+  background: #fefefe;
+  padding: 0.25rem 0;
+}
+
+.event-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 3.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.8rem;
+  color: #666;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.event-item:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.event-item.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 500;
+}
+
+.event-item .check-icon {
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
 /* ===== SELECTED CATEGORIES ===== */
 .selected-categories {
   margin-bottom: 2rem;

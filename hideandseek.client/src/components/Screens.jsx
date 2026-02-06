@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Logo, Heading, Text, Button, Input, Form,
   ChipsList, SearchBar, RadioGroup, ToggleGroup,
@@ -457,6 +457,34 @@ export const WhatScreen = ({
     "Other"
   ];
 
+  // State for hierarchical category browser
+  const [expandedMajor, setExpandedMajor] = useState(null);
+  const [expandedSub, setExpandedSub] = useState(null);
+
+  // Build the category tree from CATEGORY_FIELDS and CATEGORY_HIERARCHY
+  // Returns: { majorCat: { subCat: [noiseType1, noiseType2, ...], ... }, ... }
+  const categoryTree = useMemo(() => {
+    const tree = {};
+    for (const majorCat of Object.keys(CATEGORY_FIELDS)) {
+      tree[majorCat] = {};
+      for (const subCat of Object.keys(CATEGORY_FIELDS[majorCat])) {
+        tree[majorCat][subCat] = Object.entries(CATEGORY_HIERARCHY)
+          .filter(([, h]) => h.major === majorCat && h.sub === subCat)
+          .map(([noiseType]) => noiseType);
+      }
+    }
+    return tree;
+  }, []);
+
+  const toggleMajorCategory = (majorCat) => {
+    setExpandedMajor(prev => prev === majorCat ? null : majorCat);
+    setExpandedSub(null); // Close any open subcategory when switching major
+  };
+
+  const toggleSubcategory = (subCat) => {
+    setExpandedSub(prev => prev === subCat ? null : subCat);
+  };
+
   // Filter categories based on search input
   const getFilteredCategories = () => {
     if (!searchValue || searchValue.trim().length === 0) {
@@ -767,6 +795,57 @@ export const WhatScreen = ({
         onSuggestionClick={handleSuggestionClick}
         showSuggestions={showSuggestions}
       />
+
+      {/* Hierarchical Category Browser */}
+      <div className="category-browser">
+        <h3 className="section-title">Or Browse Categories</h3>
+        <div className="category-browser-tree">
+          {Object.entries(categoryTree).map(([majorCat, subcats]) => (
+            <div key={majorCat} className="major-category">
+              <button
+                type="button"
+                className={`major-category-header ${expandedMajor === majorCat ? 'expanded' : ''}`}
+                onClick={() => toggleMajorCategory(majorCat)}
+              >
+                <span className="category-expand-icon">{expandedMajor === majorCat ? '\u25BE' : '\u25B8'}</span>
+                <span className="category-name">{majorCat}</span>
+              </button>
+              {expandedMajor === majorCat && (
+                <div className="subcategories-container">
+                  {Object.entries(subcats).map(([subCat, noiseTypes]) => (
+                    <div key={subCat} className="subcategory-group">
+                      <button
+                        type="button"
+                        className={`subcategory-header ${expandedSub === subCat ? 'expanded' : ''}`}
+                        onClick={() => toggleSubcategory(subCat)}
+                      >
+                        <span className="category-expand-icon">{expandedSub === subCat ? '\u25BE' : '\u25B8'}</span>
+                        <span className="subcategory-name">{subCat}</span>
+                        <span className="event-count">({noiseTypes.length})</span>
+                      </button>
+                      {expandedSub === subCat && (
+                        <div className="events-container">
+                          {noiseTypes.map(noiseType => (
+                            <button
+                              key={noiseType}
+                              type="button"
+                              className={`event-item ${selectedCategories.includes(noiseType) ? 'selected' : ''}`}
+                              onClick={() => onCategorySelect(noiseType)}
+                            >
+                              {selectedCategories.includes(noiseType) && <span className="check-icon">✓</span>}
+                              {noiseType}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Show selected categories */}
       {selectedCategories.length > 0 && (
