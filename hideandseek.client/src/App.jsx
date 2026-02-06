@@ -10,10 +10,8 @@ import { UserDisplay } from './components/UIComponents';
 import { CATEGORY_FIELDS, CATEGORY_HIERARCHY } from './components/Screens';
 
 // ===== CONFIGURATION =====
-// Google Maps API key is read from Vite env: VITE_GOOGLE_MAPS_API_KEY
-// Create hideandseek.client/.env.local with: VITE_GOOGLE_MAPS_API_KEY=your_key_here
-// Docs: https://vitejs.dev/guide/env-and-mode.html
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+// Google Maps API key is fetched at runtime from /api/config/google-maps-api-key
+// Configure the key in Azure App Service settings or server environment
 
 // ===== UTILITY FUNCTIONS =====
 // Function to create translucent red circles based on blast radius
@@ -87,6 +85,9 @@ function App() {
   });
 
   // Google Maps state
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState(null);
+  const [apiKeyLoading, setApiKeyLoading] = useState(true);
+  const [apiKeyError, setApiKeyError] = useState(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [persistentMap, setPersistentMap] = useState(null);
 
@@ -401,27 +402,53 @@ function App() {
     };
   }, [userInfo.jwtToken]);
 
-  // ===== GOOGLE MAPS INITIALIZATION =====
+  // ===== FETCH GOOGLE MAPS API KEY =====
   useEffect(() => {
-    const initializeMaps = async () => {
-      console.log('Initializing Google Maps...');
-      
-      if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
-        console.warn('Google Maps API key not configured. Please add your API key to use the map feature.');
-        return;
-      }
+    const fetchApiKey = async () => {
+      console.log('Fetching Google Maps API key...');
+      setApiKeyLoading(true);
+      setApiKeyError(null);
 
       try {
-        // Loading Google Maps API...
+        const response = await fetch('/api/config/google-maps-api-key');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch API key: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.apiKey && data.apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+          setGoogleMapsApiKey(data.apiKey);
+          console.log('Google Maps API key fetched successfully');
+        } else {
+          setApiKeyError('Google Maps API key not configured on server');
+        }
+      } catch (error) {
+        console.error('Error fetching Google Maps API key:', error);
+        setApiKeyError(error.message);
+      } finally {
+        setApiKeyLoading(false);
+      }
+    };
+
+    fetchApiKey();
+  }, []);
+
+  // ===== GOOGLE MAPS INITIALIZATION =====
+  useEffect(() => {
+    if (!googleMapsApiKey) return;
+
+    const initializeMaps = async () => {
+      console.log('Initializing Google Maps...');
+
+      try {
         const { Loader } = await import('@googlemaps/js-api-loader');
         const loader = new Loader({
-          apiKey: GOOGLE_MAPS_API_KEY,
+          apiKey: googleMapsApiKey,
           version: 'weekly',
           libraries: ['places', 'marker']
         });
 
         await loader.load();
-        // Google Maps API loaded successfully
+        console.log('Google Maps API loaded successfully');
         setMapsLoaded(true);
       } catch (error) {
         console.error('Error loading Google Maps:', error);
@@ -430,7 +457,7 @@ function App() {
     };
 
     initializeMaps();
-  }, []);
+  }, [googleMapsApiKey]);
 
   // Initialize persistent map when container becomes available
   useEffect(() => {
@@ -1051,9 +1078,11 @@ function App() {
                 textAlign: 'center',
                 padding: '2rem'
               }}>
-                {GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY' 
-                  ? '🗺️ Google Maps API key not configured'
-                  : '🗺️ Loading Google Maps...'
+  {apiKeyLoading
+                  ? '🗺️ Loading configuration...'
+                  : apiKeyError
+                    ? `🗺️ ${apiKeyError}`
+                    : '🗺️ Loading Google Maps...'
                 }
               </div>
             )}
@@ -2239,9 +2268,8 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               <ol>
                 <li>Get a Google Maps API key from <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
                 <li>Enable the "Maps JavaScript API"</li>
-                <li>Create <code>hideandseek.client/.env.local</code> with:<br/> <code>VITE_GOOGLE_MAPS_API_KEY=YOUR_KEY</code></li>
-                <li>Restart the dev server: <code>npm run dev</code></li>
-                <li>Optional security: Restrict the key to referrer <code>http://localhost:50696/*</code></li>
+                <li>Configure the key in Azure App Service settings or server environment as <code>GoogleMapsApiKey</code></li>
+                <li>The key is served from <code>/api/config/google-maps-api-key</code></li>
               </ol>
             </div>
           </div>
