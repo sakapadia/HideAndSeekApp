@@ -49,13 +49,73 @@ const createBlastRadiusCircle = (mapInstance, position, blastRadius) => {
   return circle;
 };
 
+// ===== CATEGORY PIN ICONS =====
+// Maps major categories to pin colors and center icons
+const CATEGORY_PIN_CONFIG = {
+  "Celebrations, Entertainment & Gatherings": {
+    color: "#9C27B0",
+    icon: (c) => `<polygon points="12,6 12.7,8.2 15,8.2 13.2,9.5 13.8,11.8 12,10.5 10.2,11.8 10.8,9.5 9,8.2 11.3,8.2" fill="${c}"/>`
+  },
+  "Traffic, Transportation & Infrastructure": {
+    color: "#FF9800",
+    icon: (c) => `<rect x="9.2" y="7.5" width="5.6" height="3" rx="0.3" fill="none" stroke="${c}" stroke-width="0.7"/><line x1="10.5" y1="7.5" x2="12.5" y2="10.5" stroke="${c}" stroke-width="0.7"/><line x1="12.5" y1="7.5" x2="14.5" y2="10.5" stroke="${c}" stroke-width="0.7"/>`
+  },
+  "Public Safety, Hazards & Emergencies": {
+    color: "#F44336",
+    icon: (c) => `<path d="M12 6.2L15.2 11.5H8.8Z" fill="none" stroke="${c}" stroke-width="0.8" stroke-linejoin="round"/><line x1="12" y1="7.8" x2="12" y2="9.8" stroke="${c}" stroke-width="0.8" stroke-linecap="round"/><circle cx="12" cy="10.7" r="0.4" fill="${c}"/>`
+  },
+  "Protests, Civil Unrest & Political Activity": {
+    color: "#3F51B5",
+    icon: (c) => `<path d="M9 8.5V9.8H10.2L13.5 11.2V7L10.2 8.5H9Z" fill="${c}"/><line x1="14" y1="7.8" x2="15.2" y2="7.3" stroke="${c}" stroke-width="0.5"/><line x1="14" y1="9" x2="15.3" y2="9" stroke="${c}" stroke-width="0.5"/><line x1="14" y1="10.2" x2="15.2" y2="10.7" stroke="${c}" stroke-width="0.5"/>`
+  },
+  "Public Nuisances & Quality-of-Life Issues": {
+    color: "#607D8B",
+    icon: (c) => `<path d="M8.5 9C9.5 7.2 10.7 6.5 12 6.5C13.3 6.5 14.5 7.2 15.5 9C14.5 10.8 13.3 11.5 12 11.5C10.7 11.5 9.5 10.8 8.5 9Z" fill="none" stroke="${c}" stroke-width="0.7"/><circle cx="12" cy="9" r="1.5" fill="${c}"/>`
+  },
+  "Health & Biohazards": {
+    color: "#4CAF50",
+    icon: (c) => `<path d="M12 6C12 6 9.2 8.8 9.2 10.2C9.2 11.8 10.5 13 12 13C13.5 13 14.8 11.8 14.8 10.2C14.8 8.8 12 6 12 6Z" fill="${c}"/>`
+  },
+  "Animals & Wildlife": {
+    color: "#795548",
+    icon: (c) => `<circle cx="10.5" cy="7.2" r="0.7" fill="${c}"/><circle cx="13.5" cy="7.2" r="0.7" fill="${c}"/><circle cx="9.2" cy="9" r="0.7" fill="${c}"/><circle cx="14.8" cy="9" r="0.7" fill="${c}"/><ellipse cx="12" cy="10.8" rx="1.8" ry="1.2" fill="${c}"/>`
+  },
+  "Commerce, Services & Crowd Density": {
+    color: "#009688",
+    // People cluster - three figures
+    icon: (c) => `<circle cx="12" cy="6.5" r="0.9" fill="${c}"/><path d="M10.2 11C10.2 9.5 11 8.2 12 8.2C13 8.2 13.8 9.5 13.8 11" fill="${c}"/><circle cx="9.5" cy="7.8" r="0.7" fill="${c}"/><path d="M8.2 11C8.2 9.8 8.8 8.8 9.5 8.8C10.1 8.8 10.5 9.5 10.7 10.5" fill="${c}"/><circle cx="14.5" cy="7.8" r="0.7" fill="${c}"/><path d="M13.3 10.5C13.5 9.5 13.9 8.8 14.5 8.8C15.2 8.8 15.8 9.8 15.8 11" fill="${c}"/>`
+  },
+  "Community, Neighborhood & Social Events": {
+    color: "#2196F3",
+    // House cluster - two small houses
+    icon: (c) => `<path d="M10 9L8 7.5L10 6V9Z" fill="${c}"/><rect x="8.2" y="7.5" width="3.5" height="2.8" fill="${c}"/><rect x="9.2" y="8.8" width="1" height="1.5" fill="white"/><path d="M14.5 10L12.5 8.5L14.5 7V10Z" fill="${c}"/><rect x="12.7" y="8.5" width="3.5" height="2.8" fill="${c}"/><rect x="13.7" y="9.8" width="1" height="1.5" fill="white"/>`
+  },
+  "Other / Emerging Categories": {
+    color: "#9E9E9E",
+    icon: (c) => `<text x="12" y="11.5" text-anchor="middle" font-size="7" font-weight="bold" fill="${c}" font-family="Arial,sans-serif">?</text>`
+  }
+};
+
+const getMarkerSvg = (noiseType) => {
+  const hierarchy = CATEGORY_HIERARCHY[noiseType];
+  const majorCategory = hierarchy ? hierarchy.major : "Other / Emerging Categories";
+  const config = CATEGORY_PIN_CONFIG[majorCategory] || CATEGORY_PIN_CONFIG["Other / Emerging Categories"];
+  return `
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${config.color}" stroke="#FFFFFF" stroke-width="1"/>
+      <circle cx="12" cy="9" r="3.8" fill="white"/>
+      ${config.icon(config.color)}
+    </svg>
+  `;
+};
+
 /**
  * Main application component.
- * 
+ *
  * This app provides two modes:
  * 1. Map View - Interactive Google Maps for viewing noise reports
  * 2. Reporting Flow - Multi-step form for submitting new reports
- * 
+ *
  * Users can switch between these modes using the toggle button.
  */
 function App() {
@@ -845,13 +905,9 @@ function App() {
           content: document.createElement('div')
         });
         
-        // Set the marker content with custom icon
+        // Set the marker content with category-specific icon
         const markerContent = marker.content;
-        markerContent.innerHTML = `
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
-          </svg>
-        `;
+        markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType);
 
         // Build address display string
         let addressDisplay = 'No address provided';
@@ -1948,14 +2004,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         content: document.createElement('div')
       });
       
-      // Set the marker content with custom icon
+      // Set the marker content with category-specific icon
       const markerContent = marker.content;
-      markerContent.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
-        </svg>
-      `;
-      
+      markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType);
+
       // Store report ID on marker for easy removal
       marker.reportId = reportId;
 
