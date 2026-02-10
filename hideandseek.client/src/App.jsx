@@ -1181,15 +1181,47 @@ function App() {
                 <span>Medium</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 0, 0, 0.1)',
                   border: '1px solid rgba(255, 0, 0, 0.3)',
                   marginRight: '6px'
                 }}></div>
                 <span>Large</span>
+              </div>
+
+              <div style={{ borderTop: '1px solid #e0e0e0', marginTop: '10px', paddingTop: '10px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#333' }}>Categories</div>
+                {Object.entries(CATEGORY_PIN_CONFIG).map(([name, cfg]) => {
+                  const shortName = name
+                    .replace('Celebrations, Entertainment & Gatherings', 'Celebrations & Events')
+                    .replace('Traffic, Transportation & Infrastructure', 'Traffic & Infrastructure')
+                    .replace('Public Safety, Hazards & Emergencies', 'Public Safety & Hazards')
+                    .replace('Protests, Civil Unrest & Political Activity', 'Protests & Unrest')
+                    .replace('Public Nuisances & Quality-of-Life Issues', 'Public Nuisances')
+                    .replace('Health & Biohazards', 'Health & Biohazards')
+                    .replace('Animals & Wildlife', 'Animals & Wildlife')
+                    .replace('Commerce, Services & Crowd Density', 'Commerce & Crowds')
+                    .replace('Community, Neighborhood & Social Events', 'Community & Local')
+                    .replace('Other / Emerging Categories', 'Other / Emerging');
+                  return (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                      <div
+                        style={{ width: '20px', height: '20px', marginRight: '6px', flexShrink: 0 }}
+                        dangerouslySetInnerHTML={{ __html: `
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${cfg.color}" stroke="#FFF" stroke-width="1"/>
+                            <circle cx="12" cy="9" r="3.8" fill="white"/>
+                            ${cfg.icon(cfg.color)}
+                          </svg>
+                        `}}
+                      />
+                      <span style={{ lineHeight: '1.2' }}>{shortName}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2656,6 +2688,34 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               }}></div>
               <span>Large (500m)</span>
             </div>
+
+            <h4 style={{ marginTop: '15px', marginBottom: '8px' }}>Category Pins</h4>
+            {Object.entries(CATEGORY_PIN_CONFIG).map(([name, cfg]) => {
+              const shortName = name
+                .replace('Celebrations, Entertainment & Gatherings', 'Celebrations & Events')
+                .replace('Traffic, Transportation & Infrastructure', 'Traffic & Infrastructure')
+                .replace('Public Safety, Hazards & Emergencies', 'Public Safety & Hazards')
+                .replace('Protests, Civil Unrest & Political Activity', 'Protests & Unrest')
+                .replace('Public Nuisances & Quality-of-Life Issues', 'Public Nuisances')
+                .replace('Commerce, Services & Crowd Density', 'Commerce & Crowds')
+                .replace('Community, Neighborhood & Social Events', 'Community & Local')
+                .replace('Other / Emerging Categories', 'Other / Emerging');
+              return (
+                <div key={name} className="legend-item">
+                  <div
+                    style={{ width: '20px', height: '20px', marginRight: '8px', flexShrink: 0, display: 'inline-block' }}
+                    dangerouslySetInnerHTML={{ __html: `
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${cfg.color}" stroke="#FFF" stroke-width="1"/>
+                        <circle cx="12" cy="9" r="3.8" fill="white"/>
+                        ${cfg.icon(cfg.color)}
+                      </svg>
+                    `}}
+                  />
+                  <span>{shortName}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
