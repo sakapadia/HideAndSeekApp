@@ -121,6 +121,7 @@ const getMarkerSvg = (noiseType) => {
 function App() {
   // ===== STATE MANAGEMENT =====
   const [currentMode, setCurrentMode] = useState('mainMenu'); // 'mainMenu' or 'map'
+  const [selectedMode, setSelectedMode] = useState(null); // null = show mode selector, e.g. 'standard', 'petSensitive', etc.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
@@ -229,6 +230,38 @@ function App() {
       <button onClick={() => setError(null)}>Dismiss</button>
     </div>
   );
+
+  const ModeSelector = ({ onSelectMode }) => {
+    const modes = [
+      { value: 'standard', name: 'Standard', description: 'Default app experience', icon: '🔔' },
+      { value: 'petSensitive', name: 'Pet Sensitive', description: 'Alerts for pet-related hazards', icon: '🐾' },
+      { value: 'anxietyNeurodivergent', name: 'Anxiety & Neurodivergent', description: 'Calmer alerts & reduced stimuli', icon: '🧠' },
+      { value: 'avoidanceFirst', name: 'Avoidance-First', description: 'Route around reported areas', icon: '🚧' },
+      { value: 'accessibilityFirst', name: 'Accessibility-First', description: 'Screen reader & motor-friendly', icon: '♿' },
+    ];
+
+    return (
+      <div className="mode-selector-overlay">
+        <div className="mode-selector-container">
+          <h2 className="mode-selector-title">Choose Your Mode</h2>
+          <p className="mode-selector-subtitle">Select how you'd like to experience HideAndSeek</p>
+          <div className="mode-selector-grid">
+            {modes.map((mode) => (
+              <button
+                key={mode.value}
+                className="mode-selector-btn"
+                onClick={() => onSelectMode(mode.value)}
+              >
+                <span className="mode-selector-icon">{mode.icon}</span>
+                <span className="mode-selector-name">{mode.name}</span>
+                <span className="mode-selector-desc">{mode.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Function to generate estimated duration display text
   function getEstimatedDurationText(report) {
@@ -1064,7 +1097,8 @@ function App() {
       clearUserInfo();
       localStorage.removeItem('hideandseek_token');
       setShowProfile(false);
-      
+      setSelectedMode(null);
+
       // Set flag to force account selection on next login
       setForceAccountSelection(true);
       localStorage.setItem('hideandseek_force_account_selection', 'true');
@@ -1083,6 +1117,7 @@ function App() {
       });
       localStorage.removeItem('hideandseek_token');
       setShowProfile(false);
+      setSelectedMode(null);
       window.location.reload();
     }
   };
@@ -1116,6 +1151,16 @@ function App() {
       </div>
     );
   }
+
+  // Gate the app behind mode selection: show mode selector until a mode is chosen
+  if (userInfo.isLoggedIn && !selectedMode) {
+    return (
+      <div className="app">
+        <ModeSelector onSelectMode={setSelectedMode} />
+      </div>
+    );
+  }
+
   if (currentMode === 'mainMenu') {
     return (
       <div className="app">
