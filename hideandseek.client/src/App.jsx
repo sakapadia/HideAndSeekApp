@@ -121,7 +121,10 @@ const getMarkerSvg = (noiseType) => {
 function App() {
   // ===== STATE MANAGEMENT =====
   const [currentMode, setCurrentMode] = useState('mainMenu'); // 'mainMenu' or 'map'
-  const [selectedMode, setSelectedMode] = useState(null); // null = show mode selector, e.g. 'standard', 'petSensitive', etc.
+  const [selectedMode, setSelectedMode] = useState(() => {
+    const stored = localStorage.getItem('hideandseek_selected_mode');
+    return stored || null;
+  }); // null = show mode selector, e.g. 'standard', 'petSensitive', etc.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
@@ -494,6 +497,13 @@ function App() {
       delete window.upvoteReport;
     };
   }, [userInfo.jwtToken]);
+
+  // Persist selectedMode to localStorage
+  useEffect(() => {
+    if (selectedMode) {
+      localStorage.setItem('hideandseek_selected_mode', selectedMode);
+    }
+  }, [selectedMode]);
 
   // ===== FETCH GOOGLE MAPS API KEY =====
   useEffect(() => {
@@ -1096,6 +1106,7 @@ function App() {
       // Clear local state
       clearUserInfo();
       localStorage.removeItem('hideandseek_token');
+      localStorage.removeItem('hideandseek_selected_mode');
       setShowProfile(false);
       setSelectedMode(null);
 
@@ -1116,6 +1127,7 @@ function App() {
         jwtToken: ''
       });
       localStorage.removeItem('hideandseek_token');
+      localStorage.removeItem('hideandseek_selected_mode');
       setShowProfile(false);
       setSelectedMode(null);
       window.location.reload();
@@ -1352,12 +1364,14 @@ function App() {
             onClose={handleProfileClose}
             onLogout={handleLogout}
             onUserUpdate={refreshUserInfo}
+            selectedMode={selectedMode}
+            onChangeMode={() => { localStorage.removeItem('hideandseek_selected_mode'); setSelectedMode(null); }}
           />
         )}
-        
+
         {/* Loading indicator */}
         {loading && <LoadingOverlay />}
-        
+
         {/* Error display */}
         {error && <ErrorBanner />}
       </div>
@@ -1428,6 +1442,8 @@ function App() {
           onClose={handleProfileClose}
           onLogout={handleLogout}
           onUserUpdate={refreshUserInfo}
+          selectedMode={selectedMode}
+          onChangeMode={() => { localStorage.removeItem('hideandseek_selected_mode'); setSelectedMode(null); }}
         />
       )}
 

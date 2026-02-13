@@ -7,12 +7,22 @@ import './UserProfile.css';
  * User Profile Component
  * Displays user information, points, and report history
  */
-export const UserProfile = ({ 
-  userInfo, 
-  onClose, 
+const MODE_LABELS = {
+  standard: { name: 'Standard', icon: '🔔' },
+  petSensitive: { name: 'Pet Sensitive', icon: '🐾' },
+  anxietyNeurodivergent: { name: 'Anxiety & Neurodivergent', icon: '🧠' },
+  avoidanceFirst: { name: 'Avoidance-First', icon: '🚧' },
+  accessibilityFirst: { name: 'Accessibility-First', icon: '♿' },
+};
+
+export const UserProfile = ({
+  userInfo,
+  onClose,
   onLogout,
   onUserUpdate,
-  fullScreen = false
+  fullScreen = false,
+  selectedMode,
+  onChangeMode
 }) => {
   console.log('UserProfile: Component rendered');
   console.log('UserProfile: userInfo:', userInfo);
@@ -377,6 +387,23 @@ export const UserProfile = ({
               </div>
             )}
           </div>
+
+          {/* Current Mode Section */}
+          {selectedMode && (
+            <div className="profile-section">
+              <Heading text="Current Mode" level={3} />
+              <div className="current-mode-display">
+                <span className="mode-badge">
+                  {MODE_LABELS[selectedMode]?.icon || '?'} {MODE_LABELS[selectedMode]?.name || selectedMode}
+                </span>
+                <Button
+                  text="Switch Mode"
+                  onClick={onChangeMode}
+                  className="btn-outline"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Points Section */}
           <div className="profile-section">
