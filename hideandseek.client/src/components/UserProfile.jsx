@@ -399,7 +399,7 @@ export const UserProfile = ({
                 <Button
                   text="Switch Mode"
                   onClick={onChangeMode}
-                  className="btn-outline"
+                  className="btn-primary"
                 />
               </div>
             </div>
