@@ -91,6 +91,15 @@ public class ReportMergingService
                 return false;
 
             report.AddComment(commentText, username, userId);
+
+            // Keep only the 5 most recent comments
+            var comments = report.GetCommentsList();
+            if (comments.Count > 5)
+            {
+                comments = comments.OrderByDescending(c => c.CreatedAt).Take(5).OrderBy(c => c.CreatedAt).ToList();
+                report.SetCommentsList(comments);
+            }
+
             await _tableStorageService.UpdateNoiseReportAsync(report);
             return true;
         }

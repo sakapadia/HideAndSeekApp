@@ -345,19 +345,20 @@ function App() {
       }
       
       const comments = await response.json();
+      const recentComments = comments.slice(-5);
       const commentsContainer = document.getElementById(`comments-${reportId}`);
-      
+
       if (commentsContainer) {
         // Update comment count in the header
         const commentHeader = document.querySelector(`h4[style*="margin: 0 0 8px 0; color: #333; font-size: 14px;"]`);
         if (commentHeader && commentHeader.textContent.includes('Comments')) {
-          commentHeader.textContent = `Comments (${comments.length})`;
+          commentHeader.textContent = `Comments (${recentComments.length})`;
         }
-        
-        if (comments.length === 0) {
+
+        if (recentComments.length === 0) {
           commentsContainer.innerHTML = '<p style="margin: 5px 0; color: #999; font-size: 12px; font-style: italic;">No comments yet</p>';
         } else {
-          const commentsHtml = comments.map(comment => `
+          const commentsHtml = recentComments.map(comment => `
             <div style="margin-bottom: 8px; padding: 6px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #4CAF50;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <strong style="font-size: 11px; color: #333;">${comment.username}</strong>
@@ -395,7 +396,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('hideandseek_token')}`
         },
         body: JSON.stringify({ text: commentText })
       });
@@ -409,7 +410,11 @@ function App() {
       
       // Reload comments
       await loadComments(reportId);
-      
+
+      // Auto-scroll to newest comment
+      const container = document.getElementById(`comments-${reportId}`);
+      if (container) container.scrollTop = container.scrollHeight;
+
       console.log('Comment added successfully');
     } catch (error) {
       console.error('Error adding comment:', error);
