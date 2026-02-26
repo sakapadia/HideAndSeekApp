@@ -918,10 +918,11 @@ export const WhatScreen = ({
       
       <div className="screen-actions">
         <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
+          id="btnNextWhat"
+          text="NEXT →"
+          onClick={onNext}
+          disabled={!canProceed}
+          className="btn-primary"
         />
         <Button
           id="btnBack"
@@ -930,11 +931,10 @@ export const WhatScreen = ({
           className="btn-secondary"
         />
         <Button
-          id="btnNextWhat"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!canProceed}
-          className="btn-primary"
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
+          className="btn-secondary"
         />
       </div>
     </div>
@@ -1773,9 +1773,16 @@ export const CategoryDetailsScreen = ({
 
       <div className="screen-actions">
         <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
+          id="btnNextCategoryDetails"
+          text="NEXT →"
+          onClick={onNext}
+          disabled={!canProceed && fieldConfig.fields.some(f => f.required)}
+          className="btn-primary"
+        />
+        <Button
+          id="btnSkipDetails"
+          text="Skip"
+          onClick={onNext}
           className="btn-secondary"
         />
         <Button
@@ -1785,17 +1792,10 @@ export const CategoryDetailsScreen = ({
           className="btn-secondary"
         />
         <Button
-          id="btnSkipDetails"
-          text="Skip"
-          onClick={onNext}
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
           className="btn-secondary"
-        />
-        <Button
-          id="btnNextCategoryDetails"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!canProceed && fieldConfig.fields.some(f => f.required)}
-          className="btn-primary"
         />
       </div>
     </div>
@@ -1878,10 +1878,11 @@ export const WhereScreen = ({
         {/* Action Buttons */}
         <div className="where-actions">
           <Button
-            id="btnCancel"
-            text="Cancel"
-            onClick={onCancel}
-            className="btn-secondary"
+            id="btnNextWhere"
+            text="NEXT →"
+            onClick={onNext}
+            disabled={!canProceed}
+            className="btn-primary"
           />
           <Button
             id="btnBack"
@@ -1890,11 +1891,10 @@ export const WhereScreen = ({
             className="btn-secondary"
           />
           <Button
-            id="btnNextWhere"
-            text="NEXT →"
-            onClick={onNext}
-            disabled={!canProceed}
-            className="btn-primary"
+            id="btnCancel"
+            text="Cancel"
+            onClick={onCancel}
+            className="btn-secondary"
           />
         </div>
       </div>
@@ -2003,10 +2003,11 @@ export const WhenScreen = ({
       
       <div className="screen-actions">
         <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
+          id="btnNextWhen"
+          text="NEXT →"
+          onClick={onNext}
+          disabled={!canProceed}
+          className="btn-primary"
         />
         <Button
           id="btnBack"
@@ -2015,11 +2016,10 @@ export const WhenScreen = ({
           className="btn-secondary"
         />
         <Button
-          id="btnNextWhen"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!canProceed}
-          className="btn-primary"
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
+          className="btn-secondary"
         />
       </div>
     </div>
@@ -2058,10 +2058,11 @@ export const RecurrenceScreen = ({
       
       <div className="screen-actions">
         <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
+          id="btnNextRecurrence"
+          text="NEXT →"
+          onClick={onNext}
+          disabled={!isValid}
+          className="btn-primary"
         />
         <Button
           id="btnBack"
@@ -2070,11 +2071,10 @@ export const RecurrenceScreen = ({
           className="btn-secondary"
         />
         <Button
-          id="btnNextRecurrence"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!isValid}
-          className="btn-primary"
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
+          className="btn-secondary"
         />
       </div>
     </div>
@@ -2142,9 +2142,15 @@ export const MediaScreen = ({
       
       <div className="screen-actions">
         <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
+          id="btnNextMedia"
+          text="NEXT →"
+          onClick={onNext}
+          className="btn-primary"
+        />
+        <Button
+          id="btnSkip"
+          text="Skip"
+          onClick={onSkip}
           className="btn-secondary"
         />
         <Button
@@ -2154,16 +2160,10 @@ export const MediaScreen = ({
           className="btn-secondary"
         />
         <Button
-          id="btnSkip"
-          text="Skip"
-          onClick={onSkip}
+          id="btnCancel"
+          text="Cancel"
+          onClick={onCancel}
           className="btn-secondary"
-        />
-        <Button
-          id="btnNextMedia"
-          text="NEXT →"
-          onClick={onNext}
-          className="btn-primary"
         />
       </div>
     </div>

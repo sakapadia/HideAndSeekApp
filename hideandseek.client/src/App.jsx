@@ -1153,6 +1153,40 @@ function App() {
     }
   };
 
+  const handleReportSubmitted = (result) => {
+    const lat = result.latitude ?? result.Latitude;
+    const lng = result.longitude ?? result.Longitude;
+
+    if (!lat || !lng || lat === 0 || lng === 0) return;
+
+    const position = { lat, lng };
+
+    if (persistentMap && window.google) {
+      persistentMap.setCenter(position);
+      persistentMap.setZoom(15);
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position,
+        map: persistentMap,
+        title: `${result.noiseType || result.NoiseType || 'Report'}: ${result.description || result.Description || ''}`,
+        content: document.createElement('div')
+      });
+
+      const markerContent = marker.content;
+      markerContent.innerHTML = getMarkerSvg(result.noiseType || result.NoiseType);
+
+      persistentMapMarkersRef.current.push(marker);
+
+      const blastRadius = result.blastRadius || result.BlastRadius;
+      if (blastRadius) {
+        const circle = createBlastRadiusCircle(persistentMap, position, blastRadius);
+        if (circle) {
+          persistentMapMarkersRef.current.push(circle);
+        }
+      }
+    }
+  };
+
   // ===== RENDER BASED ON MODE =====
   // Gate the entire app behind authentication: show a dedicated login screen until logged in
   if (!userInfo.isLoggedIn) {
@@ -1210,7 +1244,7 @@ function App() {
           {mapsLoaded && (
             <div style={{
               position: 'absolute',
-              top: '20px',
+              top: '105px',
               right: '20px',
               background: 'rgba(255, 255, 255, 0.95)',
               padding: '15px',
@@ -1285,10 +1319,31 @@ function App() {
                   );
                 })}
               </div>
+
+              {persistentMap && (
+                <button
+                  onClick={centerOnPersistentMap}
+                  style={{
+                    marginTop: '12px',
+                    width: '100%',
+                    background: 'rgba(102, 126, 234, 0.08)',
+                    border: '2px solid #667eea',
+                    borderRadius: '8px',
+                    color: '#667eea',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    padding: '7px 10px',
+                    cursor: 'pointer',
+                    textAlign: 'center'
+                  }}
+                >
+                  📍 Center on Me
+                </button>
+              )}
             </div>
           )}
         </div>
-        
+
         {/* User Display - Show when user is logged in */}
         {userInfo.isLoggedIn && (
           <UserDisplay 
@@ -1314,34 +1369,6 @@ function App() {
           </button>
         </div>
 
-        {/* Center on Me Button for Main Menu */}
-        {/* {userInfo.isLoggedIn && persistentMap && (
-          <div style={{
-            position: 'fixed',
-            top: '120px',
-            left: '10px',
-            zIndex: 2500
-          }}>
-            <button 
-              className="report-button"
-              onClick={() => centerOnPersistentMap()}
-              style={{ 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                marginBottom: '0.5rem',
-                padding: '10px 20px',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0 2px 10px rgba(102, 126, 234, 0.3)'
-              }}
-            >
-              📍 Center on Me
-            </button>
-          </div>
-        )} */}
         
         {/* Show OAuth login if not logged in, otherwise show main menu */}
         {!userInfo.isLoggedIn ? (
@@ -1351,12 +1378,13 @@ function App() {
             forceAccountSelection={forceAccountSelection}
           />
         ) : (
-          <ReportingFlow 
+          <ReportingFlow
             userInfo={userInfo}
             startAtMainMenu={true}
             onAppLogout={handleLogout}
             onProfileClick={handleProfileClick}
             onUserUpdate={refreshUserInfo}
+            onReportSubmitted={handleReportSubmitted}
           />
         )}
         
@@ -2426,14 +2454,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         )}
 
         <div className="map-controls">
-          <button 
-            onClick={centerOnUser}
-            className="map-control-btn"
-            title="Center on My Location"
-          >
-            📍 Center on Me
-          </button>
-          <button 
+          <button
             onClick={() => {
               if (map) {
                 try {
@@ -2782,6 +2803,15 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
                 </div>
               );
             })}
+
+            <button
+              onClick={centerOnUser}
+              className="map-control-btn"
+              style={{ marginTop: '12px', width: '100%' }}
+              title="Center on My Location"
+            >
+              📍 Center on Me
+            </button>
           </div>
         </div>
       </div>

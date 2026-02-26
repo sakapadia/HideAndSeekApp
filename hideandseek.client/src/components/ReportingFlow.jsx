@@ -35,7 +35,7 @@ const SCREENS = {
  * Main reporting flow component that manages the multi-step process.
  * Handles navigation between screens and maintains state for the entire flow.
  */
-export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick, onUserUpdate }) => {
+export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick, onUserUpdate, onReportSubmitted }) => {
   // ===== STATE MANAGEMENT =====
   
   // Current screen and navigation
@@ -423,11 +423,16 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
   const handleConfirm = async () => {
     console.log('Report confirmed:', reportData);
-    
+
     try {
       // Submit the report to the backend
-      await submitNoiseReport();
-      
+      const result = await submitNoiseReport();
+
+      // Notify parent to focus map on the new report's location
+      if (onReportSubmitted && result) {
+        onReportSubmitted(result);
+      }
+
       // For regular reports, skip payment and go directly to confirmation
       if (userType !== 'organizer') {
         setCurrentScreen(SCREENS.CONFIRMATION);
