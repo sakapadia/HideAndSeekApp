@@ -35,7 +35,7 @@ const SCREENS = {
  * Main reporting flow component that manages the multi-step process.
  * Handles navigation between screens and maintains state for the entire flow.
  */
-export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick, onUserUpdate, onReportSubmitted }) => {
+export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMenu, startAtMainMenu = false, onAppLogout, onProfileClick, onUserUpdate, onReportSubmitted, geocodedAddress, onGeocodedAddressConsumed }) => {
   // ===== STATE MANAGEMENT =====
   
   // Current screen and navigation
@@ -56,7 +56,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       userType
     });
   }, [username, isGuest, isLoggedIn, userType, onUserStateChange]);
-  
+
   // Form data for each step
   const [reportData, setReportData] = useState({
     // What screen data
@@ -99,6 +99,21 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     reporterName: '',
     contactEmail: ''
   });
+
+  // Auto-fill address fields when a POI is clicked on the map
+  useEffect(() => {
+    if (geocodedAddress) {
+      setReportData(prev => ({
+        ...prev,
+        streetAddress: geocodedAddress.streetAddress || prev.streetAddress,
+        city: geocodedAddress.city || prev.city,
+        state: geocodedAddress.state || prev.state,
+        zipCode: geocodedAddress.zipCode || prev.zipCode,
+        location: `${geocodedAddress.streetAddress || ''}, ${geocodedAddress.city || ''}, ${geocodedAddress.state || ''} ${geocodedAddress.zipCode || ''}`.trim()
+      }));
+      onGeocodedAddressConsumed?.();
+    }
+  }, [geocodedAddress, onGeocodedAddressConsumed]);
 
   // ===== NAVIGATION HANDLERS =====
   

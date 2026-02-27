@@ -155,6 +155,9 @@ function App() {
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [persistentMap, setPersistentMap] = useState(null);
 
+  // Geocoded address from POI click (passed to ReportingFlow)
+  const [geocodedAddress, setGeocodedAddress] = useState(null);
+
   // Upvote state - track which reports the user has upvoted
   const [upvotedReports, setUpvotedReports] = useState(new Set());
   const [reportUpvotes, setReportUpvotes] = useState(new Map()); // reportId -> upvote count
@@ -167,6 +170,36 @@ function App() {
   const debounceTimeoutRef = React.useRef(null);
 
   // ===== UTILITY FUNCTIONS =====
+
+  // Reverse geocode lat/lng into address components using Google Geocoder
+  const reverseGeocode = (lat, lng) => {
+    if (!window.google || !window.google.maps) return;
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const components = results[0].address_components;
+        let streetNumber = '';
+        let route = '';
+        let city = '';
+        let state = '';
+        let zipCode = '';
+
+        for (const comp of components) {
+          const types = comp.types;
+          if (types.includes('street_number')) streetNumber = comp.long_name;
+          if (types.includes('route')) route = comp.long_name;
+          if (types.includes('locality')) city = comp.long_name;
+          if (types.includes('administrative_area_level_1')) state = comp.short_name;
+          if (types.includes('postal_code')) zipCode = comp.long_name;
+        }
+
+        const streetAddress = streetNumber ? `${streetNumber} ${route}` : route;
+        setGeocodedAddress({ streetAddress, city, state, zipCode, lat, lng });
+        console.log('Reverse geocoded address:', { streetAddress, city, state, zipCode });
+      }
+    });
+  };
+
   const getNoiseLevelColor = (level) => {
     if (level <= 3) return '#4CAF50'; // Green for low noise
     if (level <= 6) return '#FF9800'; // Orange for medium noise
@@ -594,12 +627,70 @@ function App() {
                 featureType: 'water',
                 elementType: 'geometry',
                 stylers: [{ color: '#bbdefb' }]
+              },
+              {
+                featureType: 'poi',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.attraction',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.business',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.government',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.medical',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.park',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.place_of_worship',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.school',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'poi.sports_complex',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
+              },
+              {
+                featureType: 'transit',
+                elementType: 'all',
+                stylers: [{ visibility: 'on' }]
               }
             ]
           });
           setPersistentMap(persistentMapInstance);
           console.log('Persistent map initialized successfully');
-          
+
+          // Listen for POI clicks to auto-fill address in reporting flow
+          persistentMapInstance.addListener('click', (event) => {
+            if (event.placeId) {
+              event.stop(); // Prevent default info window
+              reverseGeocode(event.latLng.lat(), event.latLng.lng());
+            }
+          });
+
           // Automatically center on user location
           if (navigator.geolocation) {
             console.log('📍 Requesting user location for auto-centering...');
@@ -1385,6 +1476,8 @@ function App() {
             onProfileClick={handleProfileClick}
             onUserUpdate={refreshUserInfo}
             onReportSubmitted={handleReportSubmitted}
+            geocodedAddress={geocodedAddress}
+            onGeocodedAddressConsumed={() => setGeocodedAddress(null)}
           />
         )}
         
@@ -1499,6 +1592,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [noiseReports, setNoiseReports] = useState([]);
   const [showReportForm, setShowReportForm] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [geocodedAddress, setGeocodedAddress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markersLoading, setMarkersLoading] = useState(false);
   
@@ -1670,16 +1764,99 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             featureType: 'water',
             elementType: 'geometry',
             stylers: [{ color: '#bbdefb' }]
+          },
+          {
+            featureType: 'poi',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.attraction',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.business',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.government',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.medical',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.park',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.place_of_worship',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.school',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'poi.sports_complex',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
+          },
+          {
+            featureType: 'transit',
+            elementType: 'all',
+            stylers: [{ visibility: 'on' }]
           }
         ]
       });
       
       setMap(mapInstance);
       setLoading(false);
-      
+
+      // Listen for map clicks (including POI) to auto-fill address in report form
+      mapInstance.addListener('click', (event) => {
+        if (event.placeId) {
+          event.stop(); // Prevent default info window for POIs
+        }
+        const lat = event.latLng.lat();
+        const lng = event.latLng.lng();
+        setSelectedLocation({ lat, lng });
+        // Reverse geocode the clicked location
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            const components = results[0].address_components;
+            let streetNumber = '';
+            let route = '';
+            let city = '';
+            let state = '';
+            let zipCode = '';
+            for (const comp of components) {
+              const types = comp.types;
+              if (types.includes('street_number')) streetNumber = comp.long_name;
+              if (types.includes('route')) route = comp.long_name;
+              if (types.includes('locality')) city = comp.long_name;
+              if (types.includes('administrative_area_level_1')) state = comp.short_name;
+              if (types.includes('postal_code')) zipCode = comp.long_name;
+            }
+            const streetAddress = streetNumber ? `${streetNumber} ${route}` : route;
+            setGeocodedAddress({ streetAddress, city, state, zipCode, lat, lng });
+          }
+        });
+        setShowReportForm(true);
+      });
+
       // Clear any existing markers when initializing a new map
       clearAllMarkers(mapInstance);
-      
+
       // Add bounds changed listener to refresh markers when map is moved
       mapInstance.addListener('bounds_changed', () => {
         // Skip if already fetching
@@ -2406,8 +2583,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               // Map container ref set
             }
           }}
-          className="map" 
-          onClick={handleMapClick} 
+          className="map"
           style={{ width: '100%', height: '100vh' }}
           data-testid="map-container"
         ></div>
@@ -2817,14 +2993,24 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       </div>
 
       {showReportForm && (
-        <NoiseReportForm
-          location={selectedLocation}
-          onSubmit={handleSubmitReport}
-          onCancel={() => {
-            setShowReportForm(false);
-            setSelectedLocation(null);
-          }}
-        />
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1000, background: 'white' }}>
+          <ReportingFlow
+            userInfo={userInfo}
+            startAtMainMenu={false}
+            geocodedAddress={geocodedAddress}
+            onGeocodedAddressConsumed={() => setGeocodedAddress(null)}
+            onReportSubmitted={(result) => {
+              setShowReportForm(false);
+              setSelectedLocation(null);
+              setGeocodedAddress(null);
+              if (map) fetchNoiseReports(map);
+            }}
+            onAppLogout={() => {
+              setShowReportForm(false);
+              setSelectedLocation(null);
+            }}
+          />
+        </div>
       )}
 
       <div className="stats">
