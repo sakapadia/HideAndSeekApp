@@ -278,15 +278,42 @@ export const UserProfile = ({
     );
   }
 
+  const displayName = userProfile?.displayName || userInfo?.username || 'User';
+  const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
   const Body = (
     <div className="user-profile-modal">
         <div className="profile-header">
-          <Heading text="User Profile" level={2} />
-          <Button 
-            text="✕" 
+          <Button
+            text="✕"
             onClick={onClose}
             className="close-btn"
           />
+          <div className="profile-header-content">
+            <div className="profile-avatar">
+              {userProfile?.profilePicture ? (
+                <img src={userProfile.profilePicture} alt={displayName} className="avatar-img" />
+              ) : (
+                <span className="avatar-initials">{initials}</span>
+              )}
+            </div>
+            <h2 className="profile-name">{displayName}</h2>
+            {userProfile?.email && (
+              <p className="profile-email">{userProfile.email}</p>
+            )}
+            <div className="profile-header-meta">
+              {userInfo.provider && (
+                <span className="provider-badge">
+                  {userInfo.provider.charAt(0).toUpperCase() + userInfo.provider.slice(1)}
+                </span>
+              )}
+              {userProfile?.createdDate && (
+                <span className="member-since-badge">
+                  Joined {new Date(userProfile.createdDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="profile-content">
@@ -299,7 +326,7 @@ export const UserProfile = ({
           {/* User Information Section */}
           <div className="profile-section">
             <Heading text="Account Information" level={3} />
-            
+
             {editingProfile ? (
               <div className="edit-form">
                 <div className="form-group">
@@ -335,13 +362,13 @@ export const UserProfile = ({
                   />
                 </div>
                 <div className="form-actions">
-                  <Button 
-                    text="Save" 
+                  <Button
+                    text="Save"
                     onClick={handleUpdateProfile}
                     className="btn-primary"
                   />
-                  <Button 
-                    text="Cancel" 
+                  <Button
+                    text="Cancel"
                     onClick={() => setEditingProfile(false)}
                     className="btn-secondary"
                   />
@@ -349,41 +376,31 @@ export const UserProfile = ({
               </div>
             ) : (
               <div className="user-info">
-                <div className="info-row">
-                  <span className="info-label">Username:</span>
-                  <span className="info-value">{userInfo?.username || userProfile?.displayName}</span>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">Username</span>
+                    <span className="info-value">{userInfo?.username || userProfile?.displayName}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Display Name</span>
+                    <span className="info-value">{userProfile?.displayName || 'Not set'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Email</span>
+                    <span className="info-value">{userProfile?.email}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Last Login</span>
+                    <span className="info-value">{userProfile?.lastLoginDate ? formatDate(userProfile.lastLoginDate) : 'Unknown'}</span>
+                  </div>
+                  <div className="info-item info-item-edit">
+                    <Button
+                      text="Edit Profile"
+                      onClick={() => setEditingProfile(true)}
+                      className="btn-outline"
+                    />
+                  </div>
                 </div>
-                <div className="info-row">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{userProfile?.email}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Display Name:</span>
-                  <span className="info-value">{userProfile?.displayName || 'Not set'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Sign-in Provider:</span>
-                  <span className="info-value">
-                    {userInfo.provider ? (
-                      <span className="provider-badge">
-                        {userInfo.provider.charAt(0).toUpperCase() + userInfo.provider.slice(1)}
-                      </span>
-                    ) : 'Unknown'}
-                  </span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Member Since:</span>
-                  <span className="info-value">{userProfile?.createdDate ? formatDate(userProfile.createdDate) : 'Unknown'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Last Login:</span>
-                  <span className="info-value">{userProfile?.lastLoginDate ? formatDate(userProfile.lastLoginDate) : 'Unknown'}</span>
-                </div>
-                <Button 
-                  text="Edit Profile" 
-                  onClick={() => setEditingProfile(true)}
-                  className="btn-outline"
-                />
               </div>
             )}
           </div>
