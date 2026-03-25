@@ -39,13 +39,11 @@ public class OAuthController : ControllerBase
     /// Initiates Google OAuth flow by redirecting to Google's authorization URL.
     /// </summary>
     [HttpGet("google")]
-    public IActionResult GoogleAuth([FromQuery] bool forceAccountSelection = false)
+    public IActionResult GoogleAuth()
     {
         try
         {
-            _logger.LogInformation("🔍 DEBUG: GoogleAuth called with forceAccountSelection = {ForceAccountSelection}", forceAccountSelection);
-            var authUrl = _oauthService.GetGoogleAuthUrl(forceAccountSelection);
-            _logger.LogInformation("🔗 DEBUG: Generated Google OAuth URL: {AuthUrl}", authUrl);
+            var authUrl = _oauthService.GetGoogleAuthUrl();
             return Redirect(authUrl);
         }
         catch (Exception ex)
@@ -129,10 +127,7 @@ public class OAuthController : ControllerBase
             // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
             _logger.LogInformation("JWT token generated successfully");
-            
-            // Update last login
-            await _userService.UpdateUserLastLoginAsync(user.RowKey);
-            
+
             // Redirect to frontend with token
             var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
             var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
@@ -175,10 +170,7 @@ public class OAuthController : ControllerBase
             
             // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
-            
-            // Update last login
-            await _userService.UpdateUserLastLoginAsync(user.RowKey);
-            
+
             // Redirect to frontend with token
             var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
             var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
@@ -220,10 +212,7 @@ public class OAuthController : ControllerBase
             
             // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
-            
-            // Update last login
-            await _userService.UpdateUserLastLoginAsync(user.RowKey);
-            
+
             // Redirect to frontend with token
             var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
             var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
@@ -350,89 +339,6 @@ public class OAuthController : ControllerBase
         };
 
         return Ok(logoutUrls);
-    }
-
-    /// <summary>
-    /// GET /api/auth/debug/user/{provider}/{providerId}
-    /// 
-    /// Debug endpoint to check if a user exists by OAuth provider and ID.
-    /// </summary>
-    [HttpGet("debug/user/{provider}/{providerId}")]
-    public async Task<IActionResult> DebugUserExists(string provider, string providerId)
-    {
-        try
-        {
-            var user = await _userService.GetUserByOAuthAsync(provider, providerId);
-            
-            if (user != null)
-            {
-                return Ok(new
-                {
-                    Exists = true,
-                    UserId = user.RowKey,
-                    DisplayName = user.DisplayName,
-                    Email = user.Email,
-                    Points = user.Points,
-                    CreatedDate = user.CreatedDate,
-                    LastLoginDate = user.LastLoginDate,
-                    OAuthProvider = user.OAuthProvider,
-                    OAuthProviderId = user.OAuthProviderId
-                });
-            }
-            else
-            {
-                return Ok(new { Exists = false });
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking user existence for provider: {Provider}, ProviderId: {ProviderId}", provider, providerId);
-            return StatusCode(500, "Error checking user existence");
-        }
-    }
-
-    /// <summary>
-    /// GET /api/auth/debug/test-persistence
-    /// 
-    /// Test endpoint to verify user persistence functionality.
-    /// </summary>
-    [HttpGet("debug/test-persistence")]
-    public async Task<IActionResult> TestUserPersistence()
-    {
-        try
-        {
-            // Create a test OAuth user info
-            var testOAuthInfo = new OAuthUserInfo
-            {
-                Provider = "Test",
-                ProviderId = "test_user_123",
-                Email = "test@example.com",
-                DisplayName = "Test User",
-                ProfilePictureUrl = "https://example.com/avatar.jpg"
-            };
-
-            // Simulate creating a user
-            var testUser = await _userService.CreateOAuthUserAsync(testOAuthInfo, "test_access_token", "test_refresh_token");
-            
-            // Try to find the user again
-            var foundUser = await _userService.GetUserByOAuthAsync("Test", "test_user_123");
-            
-            // Clean up test user
-            await _userService.DeleteUserAsync(testUser.RowKey);
-            
-            return Ok(new
-            {
-                TestPassed = foundUser != null,
-                CreatedUserId = testUser.RowKey,
-                FoundUserId = foundUser?.RowKey,
-                Message = foundUser != null ? "User persistence test passed" : "User persistence test failed"
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in user persistence test");
-            return StatusCode(500, "Error in user persistence test");
-        }
     }
 
     private async Task<User> GetOrCreateUser(OAuthUserInfo oauthInfo, string accessToken, string? refreshToken)

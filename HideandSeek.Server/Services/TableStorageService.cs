@@ -15,7 +15,7 @@ public interface ITableStorageService
     /// <param name="bounds">Geographic bounds and ZIP codes to search within</param>
     /// <param name="since">Optional date filter - only return reports after this date</param>
     /// <returns>Collection of noise reports matching the criteria</returns>
-    Task<NoiseReportResponse> GetNoiseReportsAsync(MapBounds bounds, DateTime? since = null);
+    Task<NoiseReportResponse> GetNoiseReportsAsync(MapBounds bounds, DateTime? since = null, ReportFilter? filter = null, int pageSize = 200);
 
     /// <summary>
     /// Creates a new noise report in Azure Table Storage.
@@ -67,6 +67,11 @@ public interface ITableStorageService
     /// <param name="report">The noise report to update</param>
     /// <returns>The updated report</returns>
     Task<NoiseReport> UpdateNoiseReportAsync(NoiseReport report);
+
+    /// <summary>
+    /// Updates the status of a noise report.
+    /// </summary>
+    Task<bool> UpdateNoiseReportStatusAsync(string reportId, string status);
 }
 
 /// <summary>
@@ -109,10 +114,10 @@ public class TableStorageService : ITableStorageService
     /// <param name="bounds">Geographic bounds and ZIP codes to search within</param>
     /// <param name="since">Optional date filter - only return reports after this date</param>
     /// <returns>Collection of noise reports matching the criteria</returns>
-    public async Task<NoiseReportResponse> GetNoiseReportsAsync(MapBounds bounds, DateTime? since = null)
+    public async Task<NoiseReportResponse> GetNoiseReportsAsync(MapBounds bounds, DateTime? since = null, ReportFilter? filter = null, int pageSize = 200)
     {
         var reports = new List<NoiseReportDto>();
-        var totalCount = 0;
+        var hasMore = false;
 
         try
         {
@@ -121,19 +126,35 @@ public class TableStorageService : ITableStorageService
             {
                 // Query all reports for this ZIP code (partition key)
                 var query = _tableClient.QueryAsync<NoiseReport>(r => r.PartitionKey == zipCode);
-                
+
                 await foreach (var report in query)
                 {
                     // Filter by coordinates within the exact bounds
-                    // This handles cases where ZIP codes are larger than the map view
-                    if (report.Latitude >= bounds.MinLatitude && 
+                    if (report.Latitude >= bounds.MinLatitude &&
                         report.Latitude <= bounds.MaxLatitude &&
-                        report.Longitude >= bounds.MinLongitude && 
+                        report.Longitude >= bounds.MinLongitude &&
                         report.Longitude <= bounds.MaxLongitude)
                     {
                         // Apply optional date filtering
                         if (since == null || report.ReportDate >= since.Value)
                         {
+                            // Apply server-side filters
+                            if (filter != null)
+                            {
+                                if (filter.Categories != null && !filter.Categories.Contains(report.NoiseType)) continue;
+                                if (filter.MinNoiseLevel != null && report.NoiseLevel < filter.MinNoiseLevel) continue;
+                                if (filter.MaxNoiseLevel != null && report.NoiseLevel > filter.MaxNoiseLevel) continue;
+                                if (filter.Statuses != null && !filter.Statuses.Contains(report.Status ?? "Open")) continue;
+                                if (filter.DateFrom != null && report.ReportDate < filter.DateFrom) continue;
+                                if (filter.DateTo != null && report.ReportDate > filter.DateTo) continue;
+                            }
+
+                            if (reports.Count >= pageSize)
+                            {
+                                hasMore = true;
+                                break;
+                            }
+
                             // Convert to DTO for frontend consumption
                             reports.Add(new NoiseReportDto
                             {
@@ -155,12 +176,16 @@ public class TableStorageService : ITableStorageService
                                 CustomDate = report.CustomDate ?? string.Empty,
                                 RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
                                 CustomSlots = report.CustomSlots ?? string.Empty,
-                                CategorySpecificData = report.CategorySpecificData ?? string.Empty
+                                CategorySpecificData = report.CategorySpecificData ?? string.Empty,
+                                Status = report.Status ?? "Open",
+                                SubmittedBy = report.SubmittedBy ?? string.Empty,
+                                MediaFiles = report.GetMediaFilesList()
                             });
-                            totalCount++;
                         }
                     }
                 }
+
+                if (hasMore) break;
             }
         }
         catch (Exception ex)
@@ -172,7 +197,8 @@ public class TableStorageService : ITableStorageService
         return new NoiseReportResponse
         {
             Reports = reports,
-            TotalCount = totalCount
+            TotalCount = reports.Count,
+            HasMore = hasMore
         };
     }
 
@@ -316,7 +342,7 @@ public class TableStorageService : ITableStorageService
         {
             // We need to search across all partitions since we only have the RowKey
             // In a production environment, you might want to maintain a separate index
-            var query = _tableClient.QueryAsync<NoiseReport>(filter: $"RowKey eq '{reportId}'");
+            var query = _tableClient.QueryAsync<NoiseReport>(r => r.RowKey == reportId);
             
             await foreach (var report in query)
             {
@@ -374,18 +400,40 @@ public class TableStorageService : ITableStorageService
         try
         {
             var reports = new List<NoiseReport>();
-            var query = _tableClient.QueryAsync<NoiseReport>(filter: $"PartitionKey eq '{zipCode}'");
-            
+            var query = _tableClient.QueryAsync<NoiseReport>(r => r.PartitionKey == zipCode);
+
             await foreach (var report in query)
             {
                 reports.Add(report);
             }
-            
+
             return reports;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving noise reports for ZIP code: {ZipCode}", zipCode);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates the status of a noise report.
+    /// </summary>
+    public async Task<bool> UpdateNoiseReportStatusAsync(string reportId, string status)
+    {
+        try
+        {
+            var report = await GetNoiseReportAsync(reportId);
+            if (report == null) return false;
+
+            report.Status = status;
+            await _tableClient.UpdateEntityAsync(report, report.ETag);
+            _logger.LogInformation("Updated status of report {ReportId} to {Status}", reportId, status);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating status for report {ReportId}", reportId);
             throw;
         }
     }

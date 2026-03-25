@@ -96,17 +96,259 @@ const CATEGORY_PIN_CONFIG = {
   }
 };
 
-const getMarkerSvg = (noiseType) => {
+const getMarkerSvg = (noiseType, status) => {
   const hierarchy = CATEGORY_HIERARCHY[noiseType];
   const majorCategory = hierarchy ? hierarchy.major : "Other / Emerging Categories";
   const config = CATEGORY_PIN_CONFIG[majorCategory] || CATEGORY_PIN_CONFIG["Other / Emerging Categories"];
+  const opacity = (status === 'Resolved' || status === 'Closed') ? '0.5' : '1';
+  const checkmark = (status === 'Resolved' || status === 'Closed')
+    ? `<circle cx="18" cy="18" r="5" fill="#2e7d32" stroke="white" stroke-width="1"/><path d="M15.5 18l1.5 1.5 3-3" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    : '';
   return `
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:${opacity}">
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${config.color}" stroke="#FFFFFF" stroke-width="1"/>
       <circle cx="12" cy="9" r="3.8" fill="white"/>
       ${config.icon(config.color)}
+      ${checkmark}
     </svg>
   `;
+};
+
+// ===== SHARED DATA FETCHING =====
+const fetchReportDataForBounds = async (bounds) => {
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+
+  const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
+    minLat: sw.lat(),
+    maxLat: ne.lat(),
+    minLon: sw.lng(),
+    maxLon: ne.lng()
+  }));
+
+  if (!zipCodesResponse.ok) {
+    throw new Error(`ZIP codes API failed: ${zipCodesResponse.status}`);
+  }
+
+  const zipCodes = (await zipCodesResponse.json()).join(',');
+
+  const response = await fetch('/api/noisereports?' + new URLSearchParams({
+    minLat: sw.lat(),
+    maxLat: ne.lat(),
+    minLon: sw.lng(),
+    maxLon: ne.lng(),
+    zipCodes: zipCodes
+  }));
+
+  if (!response.ok) {
+    throw new Error(`Noise reports API failed: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+// ===== STATUS BADGE HELPER =====
+const getStatusBadgeHtml = (status) => {
+  const statusStyles = {
+    Open: 'background:#e3f2fd;color:#1565c0',
+    Acknowledged: 'background:#fff3e0;color:#e65100',
+    InProgress: 'background:#f3e5f5;color:#7b1fa2',
+    Resolved: 'background:#e8f5e9;color:#2e7d32',
+    Closed: 'background:#f5f5f5;color:#757575'
+  };
+  const s = status || 'Open';
+  const style = statusStyles[s] || statusStyles.Open;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;${style}">${s}</span>`;
+};
+
+// ===== SHARED INFO WINDOW BUILDER =====
+const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurationText, upvoteCount, hasUpvoted, commentCount, currentUsername) => {
+  const status = report.status || report.Status || 'Open';
+  const submittedBy = report.submittedBy || report.SubmittedBy || '';
+  const isAuthor = currentUsername && submittedBy === currentUsername;
+  const mediaFiles = report.mediaFiles || report.MediaFiles || [];
+
+  // Status change buttons for report author
+  let statusButtons = '';
+  if (isAuthor) {
+    if (status === 'Open' || status === 'Acknowledged' || status === 'InProgress') {
+      statusButtons += `<button onclick="window.updateReportStatus('${reportId}','Resolved')" style="background:#2e7d32;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">Mark Resolved</button>`;
+    }
+    if (status === 'Resolved' || status === 'Closed') {
+      statusButtons += `<button onclick="window.updateReportStatus('${reportId}','Open')" style="background:#1565c0;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Reopen</button>`;
+    }
+  }
+
+  // Media gallery
+  let mediaHtml = '';
+  if (mediaFiles.length > 0) {
+    mediaHtml = `<div style="display:flex;gap:4px;overflow-x:auto;margin:8px 0;">${mediaFiles.map(url => `<img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.open('${url}')" />`).join('')}</div>`;
+  }
+
+  return `
+    <div style="padding: 10px; max-width: 300px;">
+      <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType} ${getStatusBadgeHtml(status)}</h3>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
+      ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
+      ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${estimatedDurationText}</p>
+      ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
+      ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
+      ${mediaHtml}
+      ${statusButtons ? `<div style="margin-top:6px;">${statusButtons}</div>` : ''}
+
+      <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${commentCount})</h4>
+        <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
+          <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
+        </div>
+        <div style="display: flex; gap: 5px; margin-top: 10px;">
+          <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..."
+                 style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
+          <button onclick="window.addComment('${reportId}')"
+                  style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+        <button
+          id="upvote-btn-${reportId}"
+          onclick="window.upvoteReport('${reportId}')"
+          style="
+            background: ${hasUpvoted ? '#ccc' : '#667eea'};
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+          "
+          ${hasUpvoted ? 'disabled' : ''}
+        >
+          👍 ${upvoteCount}
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+// ===== MAP STYLES =====
+const MAP_STYLES = [
+  {
+    featureType: 'all',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#667eea' }]
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#bbdefb' }]
+  },
+  {
+    featureType: 'poi',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.attraction',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.business',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.government',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.medical',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.place_of_worship',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.school',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'poi.sports_complex',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'all',
+    stylers: [{ visibility: 'on' }]
+  }
+];
+
+// ===== PRESENTATIONAL COMPONENTS =====
+const LoadingOverlay = ({ message = "Validating authentication..." }) => (
+  <div className="loading-overlay">
+    <div className="loading-spinner"></div>
+    <p>{message}</p>
+  </div>
+);
+
+const ErrorBanner = ({ error, setError }) => (
+  <div className="error-banner">
+    <p>{error}</p>
+    <button onClick={() => setError(null)}>Dismiss</button>
+  </div>
+);
+
+const ModeSelector = ({ onSelectMode }) => {
+  const modes = [
+    { value: 'standard', name: 'Standard', description: 'Default app experience', icon: '🔔' },
+    { value: 'petSensitive', name: 'Pet Sensitive', description: 'Alerts for pet-related hazards', icon: '🐾' },
+    { value: 'anxietyNeurodivergent', name: 'Anxiety & Neurodivergent', description: 'Calmer alerts & reduced stimuli', icon: '🧠' },
+    { value: 'avoidanceFirst', name: 'Avoidance-First', description: 'Route around reported areas', icon: '🚧' },
+    { value: 'accessibilityFirst', name: 'Accessibility-First', description: 'Screen reader & motor-friendly', icon: '♿' },
+  ];
+
+  return (
+    <div className="mode-selector-overlay">
+      <div className="mode-selector-container">
+        <h2 className="mode-selector-title">Choose Your Mode</h2>
+        <p className="mode-selector-subtitle">Select how you'd like to experience HideAndSeek</p>
+        <div className="mode-selector-grid">
+          {modes.map((mode) => (
+            <button
+              key={mode.value}
+              className="mode-selector-btn"
+              onClick={() => onSelectMode(mode.value)}
+            >
+              <span className="mode-selector-icon">{mode.icon}</span>
+              <span className="mode-selector-name">{mode.name}</span>
+              <span className="mode-selector-desc">{mode.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 /**
@@ -168,6 +410,7 @@ function App() {
   const persistentMapMarkersRef = React.useRef([]);
   const updateIntervalRef = React.useRef(null);
   const debounceTimeoutRef = React.useRef(null);
+  const userLocationMarkerRef = React.useRef(null);
 
   // ===== UTILITY FUNCTIONS =====
 
@@ -195,7 +438,6 @@ function App() {
 
         const streetAddress = streetNumber ? `${streetNumber} ${route}` : route;
         setGeocodedAddress({ streetAddress, city, state, zipCode, lat, lng });
-        console.log('Reverse geocoded address:', { streetAddress, city, state, zipCode });
       }
     });
   };
@@ -252,53 +494,6 @@ function App() {
     });
   };
 
-  // Extract duplicate UI components
-  const LoadingOverlay = ({ message = "Validating authentication..." }) => (
-    <div className="loading-overlay">
-      <div className="loading-spinner"></div>
-      <p>{message}</p>
-    </div>
-  );
-
-  const ErrorBanner = () => (
-    <div className="error-banner">
-      <p>{error}</p>
-      <button onClick={() => setError(null)}>Dismiss</button>
-    </div>
-  );
-
-  const ModeSelector = ({ onSelectMode }) => {
-    const modes = [
-      { value: 'standard', name: 'Standard', description: 'Default app experience', icon: '🔔' },
-      { value: 'petSensitive', name: 'Pet Sensitive', description: 'Alerts for pet-related hazards', icon: '🐾' },
-      { value: 'anxietyNeurodivergent', name: 'Anxiety & Neurodivergent', description: 'Calmer alerts & reduced stimuli', icon: '🧠' },
-      { value: 'avoidanceFirst', name: 'Avoidance-First', description: 'Route around reported areas', icon: '🚧' },
-      { value: 'accessibilityFirst', name: 'Accessibility-First', description: 'Screen reader & motor-friendly', icon: '♿' },
-    ];
-
-    return (
-      <div className="mode-selector-overlay">
-        <div className="mode-selector-container">
-          <h2 className="mode-selector-title">Choose Your Mode</h2>
-          <p className="mode-selector-subtitle">Select how you'd like to experience HideAndSeek</p>
-          <div className="mode-selector-grid">
-            {modes.map((mode) => (
-              <button
-                key={mode.value}
-                className="mode-selector-btn"
-                onClick={() => onSelectMode(mode.value)}
-              >
-                <span className="mode-selector-icon">{mode.icon}</span>
-                <span className="mode-selector-name">{mode.name}</span>
-                <span className="mode-selector-desc">{mode.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Function to generate estimated duration display text
   function getEstimatedDurationText(report) {
     // Check for multiple possible field name variations - prioritize PascalCase since API returns that
@@ -317,10 +512,10 @@ function App() {
           return date.toLocaleDateString();
         }
       } catch (error) {
-        console.warn('Invalid custom date:', customDate, error);
+        // Invalid custom date, fall through to next priority
       }
     }
-    
+
     // Priority 2: Recurrence configuration (if recurring)
     if (isRecurring && recurrenceConfig && recurrenceConfig.trim() !== '') {
       try {
@@ -337,7 +532,6 @@ function App() {
           return 'Recurring';
         }
       } catch (error) {
-        console.warn('Invalid recurrence config:', recurrenceConfig, error);
         return 'Recurring';
       }
     }
@@ -350,10 +544,10 @@ function App() {
           return `Custom times: ${slots.join(', ')}`;
         }
       } catch (error) {
-        console.warn('Invalid custom slots:', customSlots);
+        // Invalid custom slots, fall through to next priority
       }
     }
-    
+
     // Priority 4: Check if recurring but no config (fallback for recurring)
     if (isRecurring) {
       return 'Recurring';
@@ -447,8 +641,6 @@ function App() {
       // Auto-scroll to newest comment
       const container = document.getElementById(`comments-${reportId}`);
       if (container) container.scrollTop = container.scrollHeight;
-
-      console.log('Comment added successfully');
     } catch (error) {
       console.error('Error adding comment:', error);
       alert('Failed to add comment. Please try again.');
@@ -467,8 +659,37 @@ function App() {
     return report.description || report.Description || 'No description available';
   }
 
+  // Function to update report status
+  async function updateReportStatus(reportId, newStatus) {
+    try {
+      const token = localStorage.getItem('hideandseek_token') || userInfo.jwtToken;
+      const response = await fetch(`/api/noisereports/${reportId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update status');
+      }
+
+      // Refresh markers on persistent map
+      if (persistentMap) {
+        addNoiseReportMarkersToMap(persistentMap);
+      }
+    } catch (error) {
+      console.error('Error updating report status:', error);
+      setError(`Failed to update status: ${error.message}`);
+    }
+  }
+
   // Make functions globally available for onclick handlers
   window.addComment = addComment;
+  window.updateReportStatus = updateReportStatus;
 
   // ===== OAuth Token Handling =====
   useEffect(() => {
@@ -498,6 +719,7 @@ function App() {
         validateToken(storedToken);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const validateToken = async (token) => {
@@ -546,7 +768,6 @@ function App() {
   // ===== FETCH GOOGLE MAPS API KEY =====
   useEffect(() => {
     const fetchApiKey = async () => {
-      console.log('Fetching Google Maps API key...');
       setApiKeyLoading(true);
       setApiKeyError(null);
 
@@ -558,7 +779,6 @@ function App() {
         const data = await response.json();
         if (data.apiKey && data.apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
           setGoogleMapsApiKey(data.apiKey);
-          console.log('Google Maps API key fetched successfully');
         } else {
           setApiKeyError('Google Maps API key not configured on server');
         }
@@ -578,8 +798,6 @@ function App() {
     if (!googleMapsApiKey) return;
 
     const initializeMaps = async () => {
-      console.log('Initializing Google Maps...');
-
       try {
         const { Loader } = await import('@googlemaps/js-api-loader');
         const loader = new Loader({
@@ -589,7 +807,6 @@ function App() {
         });
 
         await loader.load();
-        console.log('Google Maps API loaded successfully');
         setMapsLoaded(true);
       } catch (error) {
         console.error('Error loading Google Maps:', error);
@@ -606,7 +823,6 @@ function App() {
       const initializePersistentMap = () => {
         const persistentContainer = document.getElementById('persistent-map-container');
         if (persistentContainer && !persistentMap) {
-          console.log('Persistent map container found, initializing map...');
           const persistentMapInstance = new google.maps.Map(persistentContainer, {
             center: { lat: 47.6062, lng: -122.3321 }, // Seattle
             zoom: 10,
@@ -617,71 +833,9 @@ function App() {
             streetViewControl: false,
             mapTypeControl: false,
             fullscreenControl: false,
-            styles: [
-              {
-                featureType: 'all',
-                elementType: 'labels.text.fill',
-                stylers: [{ color: '#667eea' }]
-              },
-              {
-                featureType: 'water',
-                elementType: 'geometry',
-                stylers: [{ color: '#bbdefb' }]
-              },
-              {
-                featureType: 'poi',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.attraction',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.business',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.government',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.medical',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.park',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.place_of_worship',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.school',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'poi.sports_complex',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              },
-              {
-                featureType: 'transit',
-                elementType: 'all',
-                stylers: [{ visibility: 'on' }]
-              }
-            ]
+            styles: MAP_STYLES
           });
           setPersistentMap(persistentMapInstance);
-          console.log('Persistent map initialized successfully');
 
           // Listen for POI clicks to auto-fill address in reporting flow
           persistentMapInstance.addListener('click', (event) => {
@@ -693,13 +847,10 @@ function App() {
 
           // Automatically center on user location
           if (navigator.geolocation) {
-            console.log('📍 Requesting user location for auto-centering...');
             navigator.geolocation.getCurrentPosition(
               (position) => {
                 const { latitude, longitude } = position.coords;
                 const userLocation = { lat: latitude, lng: longitude };
-                
-                console.log('📍 User location detected:', userLocation);
                 persistentMapInstance.setCenter(userLocation);
                 persistentMapInstance.setZoom(14);
                 
@@ -720,20 +871,17 @@ function App() {
                   </svg>
                 `;
                 persistentMapMarkersRef.current.push(userMarker);
-                console.log('✅ User location marker added');
-                
+
                 // Now add noise report markers around user location
                 addNoiseReportMarkersToMap(persistentMapInstance);
               },
-              (error) => {
-                console.warn('📍 Could not get user location, using default center:', error);
+              () => {
                 // Fallback: add noise report markers around default center
                 addNoiseReportMarkersToMap(persistentMapInstance);
               },
               { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
             );
           } else {
-            console.warn('📍 Geolocation not supported, using default center');
             // Fallback: add noise report markers around default center
             addNoiseReportMarkersToMap(persistentMapInstance);
           }
@@ -743,11 +891,11 @@ function App() {
       // Try to initialize after a short delay to ensure DOM is ready
       setTimeout(initializePersistentMap, 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsLoaded, persistentMap, currentMode]);
 
   // ===== MODE SWITCHING =====
   const switchToMapMode = () => {
-    console.log('Switching to map mode');
     // Clean up persistent map markers before switching
     persistentMapMarkersRef.current.forEach(marker => {
       if (marker.setMap) marker.setMap(null);
@@ -758,37 +906,33 @@ function App() {
   };
 
   const switchToMainMenu = () => {
-    console.log('Switching to main menu');
     setCurrentMode('mainMenu');
   };
 
   // Center on Me function for persistent background map
   const centerOnPersistentMap = () => {
-    console.log('Center on Me button clicked for persistent map');
-    
     if (!persistentMap) {
-      console.error('Persistent map not initialized');
       setError('Persistent map not initialized.');
       return;
     }
-    
+
     if (!navigator.geolocation) {
-      console.error('Geolocation not supported');
       setError('Geolocation is not supported by this browser.');
       return;
     }
-    
-    console.log('Requesting geolocation...');
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('Geolocation success:', position);
         const { latitude, longitude } = position.coords;
         const userLocation = { lat: latitude, lng: longitude };
-        
-        console.log('Setting map center to:', userLocation);
         persistentMap.setCenter(userLocation);
         persistentMap.setZoom(14);
-        
+
+        // Remove old user location marker before creating new one
+        if (userLocationMarkerRef.current) {
+          userLocationMarkerRef.current.setMap(null);
+        }
+
         // Add a marker for user location
         const userMarker = new google.maps.marker.AdvancedMarkerElement({
           position: userLocation,
@@ -796,7 +940,7 @@ function App() {
           title: 'Your Location',
           content: document.createElement('div')
         });
-        
+
         // Set the marker content with custom icon
         const markerContent = userMarker.content;
         markerContent.innerHTML = `
@@ -805,12 +949,11 @@ function App() {
             <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
           </svg>
         `;
-        
-        console.log('Centered persistent map on user location:', userLocation);
+        userLocationMarkerRef.current = userMarker;
+
         setError(null); // Clear any previous errors
       },
       (error) => {
-        console.error('Geolocation error:', error);
         let errorMessage = 'Unable to access your location. ';
         
         switch(error.code) {
@@ -849,8 +992,6 @@ function App() {
   // Global upvote handler for main App component (used by persistent map)
   const handleUpvoteMain = async (reportId) => {
     try {
-      console.log('Upvoting report from main component:', reportId);
-      
       const response = await fetch(`/api/noisereports/${reportId}/upvote`, {
         method: 'POST',
         headers: {
@@ -865,7 +1006,6 @@ function App() {
       }
 
       const upvoteData = await response.json();
-      console.log('Upvote response from main component:', upvoteData);
 
       // Update local state
       setUpvotedReports(prev => new Set([...prev, reportId]));
@@ -873,73 +1013,82 @@ function App() {
 
       // Update the info window content to reflect the new upvote state
       updateInfoWindowContent(reportId, upvoteData.upvotes, true);
-
-      // Show success message
-      console.log('Successfully upvoted report from main component!');
-      
     } catch (error) {
-      console.error('Error upvoting report from main component:', error);
+      console.error('Error upvoting report:', error);
       setError(`Failed to upvote report: ${error.message}`);
     }
   };
 
-  // Check upvote status for multiple reports at once (main App component scope)
+  // Check upvote status for multiple reports at once via batch endpoint
   const checkUpvoteStatusForReports = async (reports, userToken) => {
     if (!reports || reports.length === 0 || !userToken) return;
-    
-    try {
-      // Check upvote status for all reports in parallel
-      const upvotePromises = reports.map(async (report) => {
-        const reportId = report.id || report.Id || report.rowKey || report.RowKey;
-        if (!reportId) return null;
-        
-        try {
-          const response = await fetch(`/api/noisereports/${reportId}/upvote-status`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`
-            }
-          });
 
-          if (response.ok) {
-            const upvoteData = await response.json();
-            return {
-              reportId,
-              upvotes: upvoteData.upvotes,
-              hasUserUpvoted: upvoteData.hasUserUpvoted
-            };
-          }
-        } catch (error) {
-          console.error(`Error checking upvote status for report ${reportId}:`, error);
-        }
-        return null;
+    try {
+      const reportIds = reports
+        .map(r => r.id || r.Id || r.rowKey || r.RowKey)
+        .filter(Boolean);
+
+      if (reportIds.length === 0) return;
+
+      const response = await fetch('/api/noisereports/upvote-status-batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify(reportIds)
       });
 
-      const results = await Promise.all(upvotePromises);
-      
-      // Update the global upvote state
+      if (!response.ok) return;
+
+      const results = await response.json();
+
       results.forEach(result => {
         if (result) {
-          // Update reportUpvotes state
           setReportUpvotes(prev => new Map(prev.set(result.reportId, result.upvotes)));
-          // Update upvotedReports state
           if (result.hasUserUpvoted) {
             setUpvotedReports(prev => new Set([...prev, result.reportId]));
           }
-          // Update the info window content to reflect the current upvote state
           updateInfoWindowContent(result.reportId, result.upvotes, result.hasUserUpvoted);
         }
       });
     } catch (error) {
-      console.error('Error checking upvote status for reports:', error);
+      console.error('Error checking batch upvote status:', error);
+    }
+  };
+
+  // Check upvote status for a single report
+  const checkUpvoteStatus = async (reportId) => {
+    try {
+      const response = await fetch(`/api/noisereports/${reportId}/upvote-status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
+
+      if (response.ok) {
+        const upvoteData = await response.json();
+        setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
+        if (upvoteData.hasUserUpvoted) {
+          setUpvotedReports(prev => new Set([...prev, reportId]));
+        }
+        updateInfoWindowContent(reportId, upvoteData.upvotes, upvoteData.hasUserUpvoted);
+      }
+    } catch (error) {
+      console.error('Error checking upvote status:', error);
     }
   };
 
   // Function to add noise report markers to any map instance
   const addNoiseReportMarkersToMap = async (mapInstance) => {
     try {
-      // Adding noise report markers to map instance
+      // Clear existing markers before adding new ones
+      persistentMapMarkersRef.current.forEach(marker => {
+        if (marker.setMap) marker.setMap(null);
+      });
+      persistentMapMarkersRef.current = [];
       
       // Get current map bounds or use default bounds around current center
       let bounds;
@@ -968,44 +1117,9 @@ function App() {
   // Function to fetch and display noise reports for a specific map instance
   const fetchNoiseReportsWithBoundsForMap = async (bounds, mapInstance) => {
     try {
-      const ne = bounds.getNorthEast();
-      const sw = bounds.getSouthWest();
-      
-      // Fetching reports for map instance bounds
-
-      // Get ZIP codes for the current bounds
-      const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng()
-      }));
-
-      if (!zipCodesResponse.ok) {
-        throw new Error(`ZIP codes API failed: ${zipCodesResponse.status}`);
-      }
-
-      const zipCodes = (await zipCodesResponse.json()).join(',');
-      // ZIP codes found for map instance
-
-      // Fetch noise reports
-      const response = await fetch('/api/noisereports?' + new URLSearchParams({
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng(),
-        zipCodes: zipCodes
-      }));
-
-      if (!response.ok) {
-        throw new Error(`Noise reports API failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      // Noise reports data received for map instance
+      const data = await fetchReportDataForBounds(bounds);
 
       if (!data.reports || data.reports.length === 0) {
-        console.log('No reports found for map instance in the current bounds');
         return;
       }
 
@@ -1026,13 +1140,9 @@ function App() {
           markerPosition = { lat: report.latitude, lng: report.longitude };
           // Using coordinates for map instance
         } else if (report.streetAddress && report.city && report.state && report.zipCode) {
-          // If no coordinates but we have address, skip for now
-          console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
           markersSkipped++;
           return;
         } else {
-          // Skip reports with no location information
-          console.warn(`Report ${report.id} has no valid location information`);
           markersSkipped++;
           return;
         }
@@ -1046,7 +1156,7 @@ function App() {
         
         // Set the marker content with category-specific icon
         const markerContent = marker.content;
-        markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType);
+        markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType, report.status || report.Status);
 
         // Build address display string
         let addressDisplay = 'No address provided';
@@ -1062,64 +1172,14 @@ function App() {
         const reportId = report.id || report.Id || report.rowKey || report.RowKey;
         const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
         const hasUpvoted = upvotedReports.has(reportId);
-        
+        const commentCount = report.comments ? report.comments.length : 0;
+
         const infoWindow = new google.maps.InfoWindow({
-          content: `
-            <div style="padding: 10px; max-width: 300px;">
-              <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Latest Update:</strong> ${getReportDisplayText(report)}</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
-              ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
-              ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
-              <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${getEstimatedDurationText(report)}</p>
-              ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
-              ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
-              
-              <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-                <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${report.comments ? report.comments.length : 0})</h4>
-                <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
-                  <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
-                </div>
-                <div style="display: flex; gap: 5px; margin-top: 10px;">
-                  <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..." 
-                         style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
-                  <button onclick="window.addComment('${reportId}')" 
-                          style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
-                    Add
-                  </button>
-                </div>
-              </div>
-              
-              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
-                <button 
-                  id="upvote-btn-${reportId}" 
-                  onclick="window.upvoteReport('${reportId}')"
-                  style="
-                    background: ${hasUpvoted ? '#ccc' : '#667eea'};
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
-                    font-size: 12px;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    transition: background 0.2s;
-                  "
-                  ${hasUpvoted ? 'disabled' : ''}
-                >
-                  👍 ${upvoteCount}
-                </button>
-              </div>
-            </div>
-          `
+          content: buildInfoWindowContent(report, reportId, addressDisplay, getEstimatedDurationText(report), upvoteCount, hasUpvoted, commentCount, userInfo.username)
         });
 
         marker.addListener('click', () => {
-          infoWindow.open(mapInstance, marker);
+          infoWindow.open({ anchor: marker, map: mapInstance });
           // Check upvote status when info window opens
           if (reportId) {
             checkUpvoteStatus(reportId);
@@ -1146,12 +1206,6 @@ function App() {
         // Marker created for map instance report
       });
 
-      console.log(`Map instance markers created: ${markersCreated}, Skipped: ${markersSkipped}, Total reports: ${data.reports.length}`);
-      
-      if (markersSkipped > 0) {
-        console.warn(`${markersSkipped} reports were skipped for map instance due to missing location information`);
-      }
-      
     } catch (error) {
       console.error('Error fetching noise reports for map instance:', error);
       throw error;
@@ -1189,8 +1243,6 @@ function App() {
           // Redirect to provider-specific logout based on current provider
           if (userInfo.provider && logoutUrls[userInfo.provider]) {
             const logoutUrl = logoutUrls[userInfo.provider];
-            console.log(`Redirecting to ${userInfo.provider} logout: ${logoutUrl}`);
-            
             // Open logout URL in a new window/tab
             window.open(logoutUrl, '_blank', 'width=400,height=600');
           }
@@ -1264,7 +1316,7 @@ function App() {
       });
 
       const markerContent = marker.content;
-      markerContent.innerHTML = getMarkerSvg(result.noiseType || result.NoiseType);
+      markerContent.innerHTML = getMarkerSvg(result.noiseType || result.NoiseType, result.status || result.Status || 'Open');
 
       persistentMapMarkersRef.current.push(marker);
 
@@ -1289,7 +1341,7 @@ function App() {
           forceAccountSelection={forceAccountSelection}
         />
         {loading && <LoadingOverlay />}
-        {error && <ErrorBanner />}
+        {error && <ErrorBanner error={error} setError={setError} />}
       </div>
     );
   }
@@ -1499,7 +1551,7 @@ function App() {
         {loading && <LoadingOverlay />}
 
         {/* Error display */}
-        {error && <ErrorBanner />}
+        {error && <ErrorBanner error={error} setError={setError} />}
       </div>
     );
   }
@@ -1554,6 +1606,7 @@ function App() {
           debounceTimeoutRef={debounceTimeoutRef}
           getEstimatedDurationText={getEstimatedDurationText}
           checkUpvoteStatusForReports={checkUpvoteStatusForReports}
+          checkUpvoteStatus={checkUpvoteStatus}
           upvotedReports={upvotedReports}
           setUpvotedReports={setUpvotedReports}
           reportUpvotes={reportUpvotes}
@@ -1577,7 +1630,7 @@ function App() {
       {loading && <LoadingOverlay />}
 
       {/* Error display */}
-      {error && <ErrorBanner />}
+      {error && <ErrorBanner error={error} setError={setError} />}
     </div>
   );
 }
@@ -1586,7 +1639,7 @@ function App() {
  * Original map interface component.
  * This is the previous implementation with Google Maps integration.
  */
-function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode, mapRef, markersRef, persistentMapMarkersRef, updateIntervalRef, debounceTimeoutRef, getEstimatedDurationText, checkUpvoteStatusForReports, upvotedReports, setUpvotedReports, reportUpvotes, setReportUpvotes }) {
+function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, setCurrentMode, mapRef, markersRef, persistentMapMarkersRef, updateIntervalRef, debounceTimeoutRef, getEstimatedDurationText, checkUpvoteStatusForReports, checkUpvoteStatus, upvotedReports, setUpvotedReports, reportUpvotes, setReportUpvotes }) {
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [noiseReports, setNoiseReports] = useState([]);
@@ -1603,6 +1656,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     maxNoiseLevel: 10,
     city: '',
     zipCode: '',
+    statuses: [], // Array of selected statuses (Open, Acknowledged, InProgress, Resolved, Closed)
     timePeriods: [], // Array of selected time periods (Morning, Afternoon, Evening, Night)
     startDate: '', // Start date for date range filter
     endDate: '', // End date for date range filter
@@ -1659,7 +1713,44 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       delete window.upvoteReport;
     };
   }, [userInfo.jwtToken]);
-  
+
+  // Status update handler for MapInterface
+  const handleUpdateReportStatus = async (reportId, newStatus) => {
+    try {
+      const token = localStorage.getItem('hideandseek_token') || userInfo.jwtToken;
+      const response = await fetch(`/api/noisereports/${reportId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update status');
+      }
+
+      // Refresh markers
+      if (map) {
+        setCachedReports([]);
+        setDisplayedReportIds(new Set());
+        fetchNoiseReports(map);
+      }
+    } catch (error) {
+      console.error('Error updating report status:', error);
+      setError(`Failed to update status: ${error.message}`);
+    }
+  };
+
+  React.useEffect(() => {
+    window.updateReportStatus = handleUpdateReportStatus;
+    return () => {
+      delete window.updateReportStatus;
+    };
+  }, [userInfo.jwtToken, map]);
+
   // Debug component lifecycle
   useEffect(() => {
     // MapInterface component mounted
@@ -1671,14 +1762,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Refresh map when filters change
   useEffect(() => {
     if (map && !isFetchingRef.current && cachedReports.length > 0) {
-      console.log('Filters changed, updating markers with cached data:', filters);
       // Use cached data to avoid API call when only filters change
       updateMarkersIncremental(cachedReports, map);
     } else if (map && !isFetchingRef.current) {
-      console.log('Filters changed, fetching new data:', filters);
       fetchNoiseReports(map);
     }
-  }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, filters.timePeriods, filters.startDate, filters.endDate, map]);
+  }, [filters.categories, filters.minNoiseLevel, filters.maxNoiseLevel, filters.city, filters.zipCode, filters.statuses, filters.timePeriods, filters.startDate, filters.endDate, map]);
 
   // Note: No need to clean up stale categories - the hierarchical filter always
   // shows all categories from CATEGORY_HIERARCHY. If selected categories have no
@@ -1713,25 +1802,19 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       // Check if container is visible
       const computedStyle = window.getComputedStyle(mapRef.current);
       if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
-        console.log('Map container is not visible, waiting...');
         setTimeout(() => {
-          if (mapRef.current && !map) {
-            console.log('Retrying map initialization after visibility check...');
-          }
+          // Retry will be triggered by useEffect
         }, 100);
         return;
       }
-      
+
       // Force container to have proper dimensions if needed
       if (mapRef.current.offsetWidth < 100 || mapRef.current.offsetHeight < 100) {
-        console.log('Forcing container dimensions...');
         mapRef.current.style.width = '100vw';
         mapRef.current.style.height = '100vh';
         // Wait a bit for the styles to take effect
         setTimeout(() => {
-          if (mapRef.current && !map) {
-            console.log('Retrying map initialization after forcing dimensions...');
-          }
+          // Retry will be triggered by useEffect
         }, 100);
         return;
       }
@@ -1739,7 +1822,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       try {
         // Check if Google Maps API is available
         if (typeof google === 'undefined' || !google.maps) {
-          console.error('Google Maps API not available');
           setError('Google Maps API not loaded. Please refresh the page.');
           return;
         }
@@ -1754,70 +1836,9 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         streetViewControl: true,
         mapTypeControl: true,
         fullscreenControl: true,
-        styles: [
-          {
-            featureType: 'all',
-            elementType: 'labels.text.fill',
-            stylers: [{ color: '#667eea' }]
-          },
-          {
-            featureType: 'water',
-            elementType: 'geometry',
-            stylers: [{ color: '#bbdefb' }]
-          },
-          {
-            featureType: 'poi',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.attraction',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.business',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.government',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.medical',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.park',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.place_of_worship',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.school',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'poi.sports_complex',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          },
-          {
-            featureType: 'transit',
-            elementType: 'all',
-            stylers: [{ visibility: 'on' }]
-          }
-        ]
+        styles: MAP_STYLES
       });
-      
+
       setMap(mapInstance);
       setLoading(false);
 
@@ -1861,7 +1882,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       mapInstance.addListener('bounds_changed', () => {
         // Skip if already fetching
         if (isFetchingRef.current) {
-          console.log('Skipping bounds_changed event - already fetching');
           return;
         }
         
@@ -1869,7 +1889,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         clearTimeout(debounceTimeoutRef.current);
         debounceTimeoutRef.current = setTimeout(() => {
           try {
-            console.log('Bounds changed, refreshing with current filters:', filtersRef.current);
             fetchNoiseReports(mapInstance);
           } catch (error) {
             console.error('Error in bounds_changed listener:', error);
@@ -1879,7 +1898,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       
       // Initial fetch with a delay to ensure map is fully loaded
       setTimeout(() => {
-        console.log('Initial fetch of noise reports after map load delay');
         try {
           handleInitialLoad(mapInstance);
         } catch (error) {
@@ -1903,7 +1921,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     // Cleanup function
     return () => {
       if (map) {
-        console.log('Cleaning up map instance');
         // Clear any intervals or listeners
         if (updateIntervalRef.current) {
           clearInterval(updateIntervalRef.current);
@@ -1933,13 +1950,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const fetchNoiseReports = async (mapInstance) => {
     try {
       if (!mapInstance) {
-        console.error('Map instance is null or undefined');
         return;
       }
-      
+
       // Prevent multiple simultaneous fetches
       if (isFetchingRef.current) {
-        console.log('Already fetching markers, skipping duplicate request');
         return;
       }
       
@@ -1954,7 +1969,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         // Use bounds around current map center if map bounds are not available yet
         const center = mapInstance.getCenter();
         if (!center) {
-          console.error('Map center is not available');
           return;
         }
         const lat = center.lat();
@@ -1980,7 +1994,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   // Filter functions
   const applyFilters = (reports, currentFilters = filtersRef.current) => {
-    console.log('Applying filters:', currentFilters);
     return reports.filter(report => {
       // Category filter
       if (currentFilters.categories.length > 0) {
@@ -2012,14 +2025,17 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         }
       }
       
+      // Status filter
+      if (currentFilters.statuses && currentFilters.statuses.length > 0) {
+        const reportStatus = report.status || report.Status || 'Open';
+        if (!currentFilters.statuses.includes(reportStatus)) {
+          return false;
+        }
+      }
+
       // Time period filter
       if (currentFilters.timePeriods.length > 0) {
         const reportTimeOption = report.timeOption || report.TimeOption;
-        console.log('Time period filter check:', {
-          reportTimeOption,
-          selectedTimePeriods: currentFilters.timePeriods,
-          isIncluded: currentFilters.timePeriods.includes(reportTimeOption)
-        });
         if (!reportTimeOption || !currentFilters.timePeriods.includes(reportTimeOption)) {
           return false;
         }
@@ -2028,12 +2044,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       // Date range filter - use custom date (when the noise occurred) instead of report date
       if (currentFilters.startDate || currentFilters.endDate) {
         const customDate = report.customDate || report.CustomDate;
-        console.log('Date range filter check:', {
-          customDate,
-          startDate: currentFilters.startDate,
-          endDate: currentFilters.endDate,
-          hasCustomDate: !!customDate
-        });
         if (!customDate) {
           // If no custom date, skip this report
           return false;
@@ -2114,6 +2124,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       maxNoiseLevel: 10,
       city: '',
       zipCode: '',
+      statuses: [],
       timePeriods: [],
       startDate: '',
       endDate: '',
@@ -2123,7 +2134,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     
     // Refresh the map to show all reports within current bounds
     if (map && !isFetchingRef.current) {
-      console.log('Clearing filters, refreshing map to show all reports');
       fetchNoiseReports(map);
     }
   };
@@ -2144,8 +2154,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Upvote functions
   const handleUpvote = async (reportId) => {
     try {
-      console.log('Upvoting report:', reportId);
-      
       const response = await fetch(`/api/noisereports/${reportId}/upvote`, {
         method: 'POST',
         headers: {
@@ -2160,7 +2168,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       }
 
       const upvoteData = await response.json();
-      console.log('Upvote response:', upvoteData);
 
       // Update local state
       setUpvotedReports(prev => new Set([...prev, reportId]));
@@ -2168,49 +2175,17 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       // Update the info window content to reflect the new upvote state
       updateInfoWindowContent(reportId, upvoteData.upvotes, true);
-
-      // Show success message
-      console.log('Successfully upvoted report!');
-      
     } catch (error) {
       console.error('Error upvoting report:', error);
       setError(`Failed to upvote report: ${error.message}`);
     }
   };
 
-  const checkUpvoteStatus = async (reportId) => {
-    try {
-      const response = await fetch(`/api/noisereports/${reportId}/upvote-status`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userInfo.jwtToken}`
-        }
-      });
-
-      if (response.ok) {
-        const upvoteData = await response.json();
-        setReportUpvotes(prev => new Map(prev.set(reportId, upvoteData.upvotes)));
-        if (upvoteData.hasUserUpvoted) {
-          setUpvotedReports(prev => new Set([...prev, reportId]));
-        }
-        
-        // Update the info window content to reflect the current upvote state
-        updateInfoWindowContent(reportId, upvoteData.upvotes, upvoteData.hasUserUpvoted);
-      }
-    } catch (error) {
-      console.error('Error checking upvote status:', error);
-    }
-  };
-
-
   // Function to clear all markers from a map instance
   const clearAllMarkers = (mapInstance) => {
     const isPersistentMap = mapInstance === persistentMap;
     const markerRef = isPersistentMap ? persistentMapMarkersRef : markersRef;
-    
-    console.log(`Clearing all markers from ${isPersistentMap ? 'persistent' : 'regular'} map. Count: ${markerRef.current.length}`);
-    
+
     // Remove all markers and circles
     markerRef.current.forEach(item => {
       if (item && (item.setMap || item.map)) {
@@ -2268,8 +2243,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     // Reset displayed report IDs
     setDisplayedReportIds(new Set());
     
-    console.log(`Cleared all markers. New count: ${markerRef.current.length}`);
-    
     // Now add all filtered reports as new markers
     const reportsToAdd = filteredReports;
     
@@ -2289,17 +2262,15 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       if (lat && lng && lat !== 0 && lng !== 0) {
         markerPosition = { lat: lat, lng: lng };
       } else if (report.streetAddress && report.city && report.state && report.zipCode) {
-        console.warn(`Report ${report.id} has no coordinates but has address: ${report.streetAddress}, ${report.city}, ${report.state} ${report.zipCode}`);
         markersSkipped++;
         return;
       } else {
-        console.warn(`Report ${report.id} has no valid location information`);
         markersSkipped++;
         return;
       }
 
       const reportId = report.id || report.Id || report.rowKey || report.RowKey;
-      
+
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: markerPosition,
         map: mapInstance,
@@ -2309,7 +2280,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       
       // Set the marker content with category-specific icon
       const markerContent = marker.content;
-      markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType);
+      markerContent.innerHTML = getMarkerSvg(report.noiseType || report.NoiseType, report.status || report.Status);
 
       // Store report ID on marker for easy removal
       marker.reportId = reportId;
@@ -2327,66 +2298,15 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       // Add info window with enhanced content
       const upvoteCount = reportUpvotes.get(reportId) || report.upvotes || report.Upvotes || 0;
       const hasUpvoted = upvotedReports.has(reportId);
-      
-      // Get estimated duration text before creating the info window
       const estimatedDurationText = getEstimatedDurationText(report);
-      
+      const commentCount = report.commentCount || 0;
+
       const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="padding: 10px; max-width: 300px;">
-            <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType}</h3>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
-            ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
-            ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
-            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${estimatedDurationText}</p>
-            ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
-            ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
-            
-            <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-              <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${report.commentCount || 0})</h4>
-              <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
-                <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
-              </div>
-              <div style="display: flex; gap: 5px; margin-top: 10px;">
-                <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..." 
-                       style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
-                <button onclick="window.addComment('${reportId}')" 
-                        style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
-                  Add
-                </button>
-              </div>
-            </div>
-            
-            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
-              <button 
-                id="upvote-btn-${reportId}" 
-                onclick="window.upvoteReport('${reportId}')"
-                style="
-                  background: ${hasUpvoted ? '#ccc' : '#667eea'};
-                  color: white;
-                  border: none;
-                  padding: 6px 12px;
-                  border-radius: 6px;
-                  cursor: ${hasUpvoted ? 'not-allowed' : 'pointer'};
-                  font-size: 12px;
-                  display: flex;
-                  align-items: center;
-                  gap: 4px;
-                  transition: background 0.2s;
-                "
-                ${hasUpvoted ? 'disabled' : ''}
-              >
-                👍 ${upvoteCount}
-              </button>
-            </div>
-          </div>
-        `
+        content: buildInfoWindowContent(report, reportId, addressDisplay, estimatedDurationText, upvoteCount, hasUpvoted, commentCount, userInfo.username)
       });
 
       marker.addListener('click', () => {
-        infoWindow.open(mapInstance, marker);
+        infoWindow.open({ anchor: marker, map: mapInstance });
         if (reportId) {
           checkUpvoteStatus(reportId);
           loadComments(reportId);
@@ -2405,7 +2325,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       markerRef.current.push(marker);
       markersCreated++;
-      console.log('Marker created for report:', report.id);
     });
     
     // Update state
@@ -2424,50 +2343,16 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   const fetchNoiseReportsWithBounds = async (bounds, mapInstance) => {
     try {
-      const ne = bounds.getNorthEast();
-      const sw = bounds.getSouthWest();
-      
-      // Fetching reports for bounds
+      const data = await fetchReportDataForBounds(bounds);
 
-      // Get ZIP codes for the current bounds
-      const zipCodesResponse = await fetch('/api/noisereports/zipcodes?' + new URLSearchParams({
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng()
-      }));
-
-      if (!zipCodesResponse.ok) {
-        throw new Error(`ZIP codes API failed: ${zipCodesResponse.status}`);
-      }
-
-      const zipCodes = (await zipCodesResponse.json()).join(',');
-      // ZIP codes found
-
-      // Fetch noise reports
-      const response = await fetch('/api/noisereports?' + new URLSearchParams({
-        minLat: sw.lat(),
-        maxLat: ne.lat(),
-        minLon: sw.lng(),
-        maxLon: ne.lng(),
-        zipCodes: zipCodes
-      }));
-
-      if (!response.ok) {
-        throw new Error(`Noise reports API failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      // Raw reports from API
-      
       // Check upvote status for all reports when they're first loaded
       if (data.reports && data.reports.length > 0 && checkUpvoteStatusForReports) {
         checkUpvoteStatusForReports(data.reports, userInfo.jwtToken);
       }
-      
+
       // Use incremental update instead of recreating all markers
       updateMarkersIncremental(data.reports || [], mapInstance);
-      
+
     } catch (error) {
       console.error('Error fetching noise reports with bounds:', error);
       throw error;
@@ -2477,17 +2362,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Handle initial load when no cached data exists
   const handleInitialLoad = (mapInstance) => {
     if (cachedReports.length === 0) {
-      console.log('No cached data, performing initial load');
       fetchNoiseReports(mapInstance);
     } else {
-      console.log('Using cached data for initial load');
       updateMarkersIncremental(cachedReports, mapInstance);
     }
   };
 
   // Center map on user's current location on demand
   const centerOnUser = () => {
-    console.log('Center on Me button clicked!');
     if (!map) return;
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by this browser.');
@@ -2524,16 +2406,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   // getNoiseLevelColor is now defined in the main App component
 
-  const handleMapClick = (event) => {
-    if (event && event.latLng) {
-      setSelectedLocation({
-        lat: event.latLng.lat(),
-        lng: event.latLng.lng()
-      });
-      setShowReportForm(true);
-    }
-  };
-
   const handleSubmitReport = async (reportData) => {
     try {
       const response = await fetch('/api/noisereports', {
@@ -2569,12 +2441,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
   return (
     <div className="app">
-      {/* Header hidden in map mode to maximize map viewport */}
-      <header className="header" style={{ display: 'none' }}>
-        <h1>Noise Report Map</h1>
-        <p>Report and view noise complaints in your area</p>
-      </header>
-      
       <div className="map-container fullscreen">
         <div 
           ref={(el) => {
@@ -2782,6 +2648,30 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               </div>
             </div>
 
+            {/* Status Filter */}
+            <div className="filter-section">
+              <h4>Report Status</h4>
+              <div className="status-filters">
+                {['Open', 'Acknowledged', 'InProgress', 'Resolved', 'Closed'].map(s => (
+                  <label key={s} className="time-period-filter-item">
+                    <input
+                      type="checkbox"
+                      checked={filters.statuses.includes(s)}
+                      onChange={() => {
+                        setFilters(prev => ({
+                          ...prev,
+                          statuses: prev.statuses.includes(s)
+                            ? prev.statuses.filter(x => x !== s)
+                            : [...prev.statuses, s]
+                        }));
+                      }}
+                    />
+                    <span>{s}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Time Period Filter */}
             <div className="filter-section">
               <h4>Time Period</h4>
@@ -2867,6 +2757,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
                     ZIP: {filters.zipCode}
                   </span>
                 )}
+                {filters.statuses && filters.statuses.length > 0 && (
+                  <span className="active-filter-tag">
+                    Status: {filters.statuses.join(', ')}
+                  </span>
+                )}
                 {filters.timePeriods.length > 0 && (
                   <span className="active-filter-tag">
                     Time: {filters.timePeriods.join(', ')}
@@ -2882,11 +2777,12 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
                     To: {new Date(filters.endDate).toLocaleDateString()}
                   </span>
                 )}
-                {filters.categories.length === 0 && 
-                 filters.minNoiseLevel === 1 && 
-                 filters.maxNoiseLevel === 10 && 
-                 !filters.city && 
+                {filters.categories.length === 0 &&
+                 filters.minNoiseLevel === 1 &&
+                 filters.maxNoiseLevel === 10 &&
+                 !filters.city &&
                  !filters.zipCode &&
+                 (!filters.statuses || filters.statuses.length === 0) &&
                  filters.timePeriods.length === 0 &&
                  !filters.startDate &&
                  !filters.endDate && (

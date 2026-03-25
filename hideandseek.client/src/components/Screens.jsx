@@ -64,116 +64,8 @@ export const MainMenuScreen = ({
   );
 };
 
-/**
- * PreLogin Screen - Welcome and authentication
- */
-export const PreLoginScreen = ({ onLogin, onCreateAccount, onGuestAccess, onSocialLogin }) => {
-  const [formData, setFormData] = React.useState({
-    username: '',
-    password: ''
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onLogin(formData);
-  };
-
-  const handleInputChange = (field) => (e) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleSocialLogin = (provider) => {
-    onSocialLogin(provider);
-  };
-
-  return (
-    <div className="screen pre-login-screen">
-      <Logo src="logo.png" alt="Hide & Seek Logo" />
-      <Heading text="Welcome to Hide & Seek" level={1} />
-      <Text text="Report and track noise complaints in your community" />
-      
-      {/* Social Login Buttons */}
-      <div className="social-login">
-        <Button 
-          id="btnGmailLogin" 
-          text="Continue with Gmail" 
-          onClick={() => handleSocialLogin('gmail')}
-          className="btn-social btn-gmail"
-        />
-        <Button 
-          id="btnFacebookLogin" 
-          text="Continue with Facebook" 
-          onClick={() => handleSocialLogin('facebook')}
-          className="btn-social btn-facebook"
-        />
-      </div>
-      
-      {/* Divider */}
-      <div className="divider">
-        <span>or</span>
-      </div>
-      
-      <Button 
-        id="btnCreateAccount" 
-        text="Create New Account" 
-        onClick={onCreateAccount}
-        className="btn-primary"
-      />
-      
-      <Form id="loginForm" onSubmit={handleSubmit}>
-        <Input
-          id="username"
-          label="User Name"
-          placeholder="Enter username"
-          value={formData.username}
-          onChange={handleInputChange('username')}
-        />
-        <Input
-          id="password"
-          label="Password"
-          placeholder="Enter password"
-          secure={true}
-          value={formData.password}
-          onChange={handleInputChange('password')}
-        />
-        <Button id="btnLogin" text="Login" type="submit" className="btn-primary" />
-      </Form>
-      
-      {/* Guest Access */}
-      <div className="guest-access">
-        <Text text="Want to report without an account?" />
-        <Button 
-          id="btnGuestAccess" 
-          text="Continue as Guest" 
-          onClick={onGuestAccess}
-          className="btn-secondary"
-        />
-        <Text text="Guest reports are anonymous and won't be saved to your account" className="guest-note" />
-      </div>
-    </div>
-  );
-};
-
-/**
- * What Screen - Category selection
- */
-export const WhatScreen = ({ 
-  progress = 10,
-  selectedCategories = [],
-  onCategorySelect,
-  onSearchChange,
-  onNoiseLevelChange,
-  onDescriptionChange,
-  onNext,
-  onBack,
-  onCancel,
-  searchValue = '',
-  noiseLevel = 5,
-  description = ''
-}) => {
-  // Master Event & Occurrence Directory - Hide & Seek Taxonomy v1
-  // Comprehensive list of all categories from the master taxonomy
-  const allCategories = [
+// Master Event & Occurrence Directory - Hide & Seek Taxonomy v1
+const allCategories = [
     // 1. Celebrations, Entertainment & Gatherings
     // 1.1 Holidays & Cultural Celebrations
     "Fireworks (legal displays)",
@@ -455,53 +347,10 @@ export const WhatScreen = ({
     "New celebration types",
     "Location-specific anomalies",
     "Other"
-  ];
+];
 
-  // State for hierarchical category browser
-  const [expandedMajor, setExpandedMajor] = useState(null);
-  const [expandedSub, setExpandedSub] = useState(null);
-
-  // Build the category tree from CATEGORY_FIELDS and CATEGORY_HIERARCHY
-  // Returns: { majorCat: { subCat: [noiseType1, noiseType2, ...], ... }, ... }
-  const categoryTree = useMemo(() => {
-    const tree = {};
-    for (const majorCat of Object.keys(CATEGORY_FIELDS)) {
-      tree[majorCat] = {};
-      for (const subCat of Object.keys(CATEGORY_FIELDS[majorCat])) {
-        tree[majorCat][subCat] = Object.entries(CATEGORY_HIERARCHY)
-          .filter(([, h]) => h.major === majorCat && h.sub === subCat)
-          .map(([noiseType]) => noiseType);
-      }
-    }
-    return tree;
-  }, []);
-
-  const toggleMajorCategory = (majorCat) => {
-    setExpandedMajor(prev => prev === majorCat ? null : majorCat);
-    setExpandedSub(null); // Close any open subcategory when switching major
-  };
-
-  const toggleSubcategory = (subCat) => {
-    setExpandedSub(prev => prev === subCat ? null : subCat);
-  };
-
-  // Filter categories based on search input
-  const getFilteredCategories = () => {
-    if (!searchValue || searchValue.trim().length === 0) {
-      return [];
-    }
-    const searchLower = searchValue.toLowerCase().trim();
-    return allCategories.filter(category => 
-      category.toLowerCase().includes(searchLower)
-    ).slice(0, 10); // Limit to 10 suggestions
-  };
-
-  const filteredCategories = getFilteredCategories();
-  const showSuggestions = searchValue.trim().length > 0 && filteredCategories.length > 0;
-
-  // Noise level suggestions based on category
-  // Maps categories to typical noise level ranges
-  const getNoiseLevelSuggestion = (category) => {
+// Noise level suggestions based on category
+const getNoiseLevelSuggestion = (category) => {
     const suggestions = {
       // Celebrations, Entertainment & Gatherings
       "Fireworks (legal displays)": "Typical: 8-10/10",
@@ -753,7 +602,66 @@ export const WhatScreen = ({
       "Other": "Select a category for suggestions"
     };
     return suggestions[category] || "Select a category for suggestions";
+};
+
+/**
+ * What Screen - Category selection
+ */
+export const WhatScreen = ({
+  progress = 10,
+  selectedCategories = [],
+  onCategorySelect,
+  onSearchChange,
+  onNoiseLevelChange,
+  onDescriptionChange,
+  onNext,
+  onBack,
+  onCancel,
+  searchValue = '',
+  noiseLevel = 5,
+  description = ''
+}) => {
+  // State for hierarchical category browser
+  const [expandedMajor, setExpandedMajor] = useState(null);
+  const [expandedSub, setExpandedSub] = useState(null);
+
+  // Build the category tree from CATEGORY_FIELDS and CATEGORY_HIERARCHY
+  // Returns: { majorCat: { subCat: [noiseType1, noiseType2, ...], ... }, ... }
+  const categoryTree = useMemo(() => {
+    const tree = {};
+    for (const majorCat of Object.keys(CATEGORY_FIELDS)) {
+      tree[majorCat] = {};
+      for (const subCat of Object.keys(CATEGORY_FIELDS[majorCat])) {
+        tree[majorCat][subCat] = Object.entries(CATEGORY_HIERARCHY)
+          .filter(([, h]) => h.major === majorCat && h.sub === subCat)
+          .map(([noiseType]) => noiseType);
+      }
+    }
+    return tree;
+  }, []);
+
+  const toggleMajorCategory = (majorCat) => {
+    setExpandedMajor(prev => prev === majorCat ? null : majorCat);
+    setExpandedSub(null); // Close any open subcategory when switching major
   };
+
+  const toggleSubcategory = (subCat) => {
+    setExpandedSub(prev => prev === subCat ? null : subCat);
+  };
+
+  // Filter categories based on search input
+  const getFilteredCategories = () => {
+    if (!searchValue || searchValue.trim().length === 0) {
+      return [];
+    }
+    const searchLower = searchValue.toLowerCase().trim();
+    return allCategories.filter(category => 
+      category.toLowerCase().includes(searchLower)
+    ).slice(0, 10); // Limit to 10 suggestions
+  };
+
+  const filteredCategories = getFilteredCategories();
+  const showSuggestions = searchValue.trim().length > 0 && filteredCategories.length > 0;
 
   const handleSearchChange = (e) => {
     // Extract value from event if it's an event object, otherwise use as-is
@@ -832,7 +740,7 @@ export const WhatScreen = ({
                               className={`event-item ${selectedCategories.includes(noiseType) ? 'selected' : ''}`}
                               onClick={() => onCategorySelect(noiseType)}
                             >
-                              {selectedCategories.includes(noiseType) && <span className="check-icon">✓</span>}
+                              <span className="radio-icon">{selectedCategories.includes(noiseType) ? '◉' : '○'}</span>
                               {noiseType}
                             </button>
                           ))}
@@ -1931,8 +1839,6 @@ export const WhenScreen = ({
   };
 
   const handleRecurringChange = (isRecurring) => {
-    console.log('WhenScreen: handleRecurringChange called with:', isRecurring);
-    console.log('WhenScreen: onRecurringChange function:', onRecurringChange);
     onRecurringChange(isRecurring);
   };
 
@@ -2084,87 +1990,105 @@ export const RecurrenceScreen = ({
 /**
  * Media Screen - Photo/media upload
  */
-export const MediaScreen = ({ 
+export const MediaScreen = ({
   progress = 70,
   mediaFiles = [],
   onPickFromDevice,
   onUseCamera,
+  onRemoveMedia,
+  uploadingFiles = [],
+  mediaError = '',
   onSkip,
   onNext,
   onBack,
   onCancel
 }) => {
+  const fileInputRef = React.useRef(null);
+  const cameraInputRef = React.useRef(null);
+  const [dragOver, setDragOver] = React.useState(false);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onPickFromDevice(e.dataTransfer.files);
+    }
+  };
+
   return (
     <div className="screen media-screen">
       <ProgressBar progress={progress} />
       <Heading text="Add Photos or Videos" level={2} />
-      <Text text="Help others understand the situation better with visual evidence." />
-      
-      <div className="media-options">
-        <div className="media-option">
-          <div className="media-icon">📱</div>
-          <h3>Pick from Device</h3>
-          <p>Select photos or videos from your device</p>
-          <Button 
-            id="btnPickFromDevice" 
-            text="Choose Files" 
-            onClick={onPickFromDevice}
-            className="btn-primary"
-          />
-        </div>
-        
-        <div className="media-option">
-          <div className="media-icon">📷</div>
-          <h3>Use Camera</h3>
-          <p>Take a photo or video right now</p>
-          <Button 
-            id="btnUseCamera" 
-            text="Open Camera" 
-            onClick={onUseCamera}
-            className="btn-primary"
-          />
-        </div>
+      <Text text="Help others understand the situation better with visual evidence. Max 5 files, 10 MB each." />
+
+      <div
+        className={`media-dropzone${dragOver ? ' drag-over' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <div style={{ fontSize: '2rem' }}>📁</div>
+        <p>Drag & drop files here, or click to browse</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,video/mp4"
+          style={{ display: 'none' }}
+          onChange={(e) => { if (e.target.files.length) onPickFromDevice(e.target.files); e.target.value = ''; }}
+        />
       </div>
-      
-      {mediaFiles.length > 0 && (
-        <div className="media-preview">
-          <h3>Selected Media ({mediaFiles.length} files)</h3>
-          <div className="media-grid">
-            {mediaFiles.map((file, index) => (
-              <div key={index} className="media-item">
-                <img src={file.preview} alt={`Media ${index + 1}`} />
-                <span className="media-name">{file.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      <div className="screen-actions">
+
+      <div className="media-options" style={{ marginBottom: '12px' }}>
         <Button
-          id="btnNextMedia"
-          text="NEXT →"
-          onClick={onNext}
+          id="btnUseCamera"
+          text="📷 Use Camera"
+          onClick={() => cameraInputRef.current?.click()}
           className="btn-primary"
         />
-        <Button
-          id="btnSkip"
-          text="Skip"
-          onClick={onSkip}
-          className="btn-secondary"
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={(e) => { if (e.target.files.length) onUseCamera(e.target.files); e.target.value = ''; }}
         />
-        <Button
-          id="btnBack"
-          text="← Back"
-          onClick={onBack}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
-        />
+      </div>
+
+      {mediaError && <p className="media-error">{mediaError}</p>}
+
+      {(mediaFiles.length > 0 || uploadingFiles.length > 0) && (
+        <div className="media-preview-grid">
+          {mediaFiles.map((file, index) => (
+            <div key={index} className="media-preview-item">
+              {file.type === 'video' ? (
+                <video src={file.url} />
+              ) : (
+                <img src={file.url || file.preview} alt={`Media ${index + 1}`} />
+              )}
+              <button className="remove-btn" onClick={() => onRemoveMedia(index)}>✕</button>
+            </div>
+          ))}
+          {uploadingFiles.map((f, i) => (
+            <div key={`uploading-${i}`} className="media-preview-item">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f5f5f5', fontSize: '12px', color: '#888' }}>
+                Uploading...
+              </div>
+              <div className="upload-progress">
+                <div className="upload-progress-bar upload-progress-indeterminate" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="screen-actions">
+        <Button id="btnNextMedia" text="NEXT →" onClick={onNext} className="btn-primary" />
+        <Button id="btnSkip" text="Skip" onClick={onSkip} className="btn-secondary" />
+        <Button id="btnBack" text="← Back" onClick={onBack} className="btn-secondary" />
+        <Button id="btnCancel" text="Cancel" onClick={onCancel} className="btn-secondary" />
       </div>
     </div>
   );

@@ -214,6 +214,12 @@ public class NoiseReport : ITableEntity
     public string MediaFiles { get; set; } = string.Empty;
 
     /// <summary>
+    /// Current status of the report.
+    /// Values: "Open", "Acknowledged", "InProgress", "Resolved", "Closed"
+    /// </summary>
+    public string Status { get; set; } = "Open";
+
+    /// <summary>
     /// Number of upvotes this report has received.
     /// Starts at 0 and increments when users upvote the report.
     /// </summary>

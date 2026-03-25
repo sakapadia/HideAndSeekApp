@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  PreLoginScreen,
   MainMenuScreen,
   WhatScreen,
   CategoryDetailsScreen,
@@ -14,6 +13,34 @@ import {
   ConfirmationScreen
 } from './Screens';
 import { UserDisplay } from './UIComponents';
+
+// ===== INITIAL REPORT DATA =====
+const INITIAL_REPORT_DATA = {
+  selectedCategories: [],
+  searchValue: '',
+  category: '',
+  description: '',
+  noiseLevel: 5,
+  categorySpecificData: {},
+  streetAddress: '',
+  city: '',
+  state: 'WA',
+  zipCode: '',
+  location: '',
+  blastRadius: '',
+  timeOption: 'NOW',
+  timeOfDay: '',
+  customDate: '',
+  selectedDate: '',
+  customSlots: [],
+  isRecurring: false,
+  recurrenceConfig: {},
+  mediaFiles: [],
+  selectedPaymentMethod: '',
+  paymentFormData: {},
+  reporterName: '',
+  contactEmail: ''
+};
 
 // ===== SCREEN DEFINITIONS =====
 const SCREENS = {
@@ -58,47 +85,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   }, [username, isGuest, isLoggedIn, userType, onUserStateChange]);
 
   // Form data for each step
-  const [reportData, setReportData] = useState({
-    // What screen data
-    selectedCategories: [],
-    searchValue: '',
-    category: '',
-    description: '',
-    noiseLevel: 5,
-    
-    // Where screen data
-    streetAddress: '',
-    city: '',
-    state: 'WA', // Default to Washington
-    zipCode: '',
-    location: '',
-    blastRadius: '',
-    
-    // When screen data
-    timeOption: 'NOW',
-    timeOfDay: '',
-    customDate: '',
-    selectedDate: '',
-    customSlots: [],
-    isRecurring: false,
-    
-    // Category details screen data
-    categorySpecificData: {},
-
-    // Recurrence screen data
-    recurrenceConfig: {},
-
-    // Media screen data
-    mediaFiles: [],
-    
-    // Payment screen data (hidden for regular reports)
-    selectedPaymentMethod: '',
-    paymentFormData: {},
-    
-    // Contact info
-    reporterName: '',
-    contactEmail: ''
-  });
+  const [reportData, setReportData] = useState(INITIAL_REPORT_DATA);
 
   // Auto-fill address fields when a POI is clicked on the map
   useEffect(() => {
@@ -187,36 +174,11 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   // ===== AUTHENTICATION HANDLERS =====
-  
-  const handleLogin = (credentials) => {
-    console.log('Login attempt:', credentials);
-    setIsLoggedIn(true);
-    setUserType('user');
-    setUsername(credentials.username || 'User');
-    navigateTo(SCREENS.MAIN_MENU);
-  };
-
-  const handleCreateAccount = () => {
-    console.log('Create account clicked');
-    setIsLoggedIn(true);
-    setUserType('user');
-    setUsername('New User');
-    navigateTo(SCREENS.MAIN_MENU);
-  };
 
   const handleGuestAccess = () => {
-    console.log('Guest access selected');
     setIsGuest(true);
     setUserType('guest');
     setUsername('');
-    navigateTo(SCREENS.MAIN_MENU);
-  };
-
-  const handleSocialLogin = (provider) => {
-    console.log('Social login:', provider);
-    setIsLoggedIn(true);
-    setUserType('user');
-    setUsername(`${provider.charAt(0).toUpperCase() + provider.slice(1)} User`);
     navigateTo(SCREENS.MAIN_MENU);
   };
 
@@ -249,9 +211,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     setReportData(prev => ({
       ...prev,
       selectedCategories: prev.selectedCategories.includes(category)
-        ? prev.selectedCategories.filter(c => c !== category)
-        : [...prev.selectedCategories, category],
-      category: category // Store for review screen
+        ? []
+        : [category],
+      category: category
     }));
   };
 
@@ -355,15 +317,10 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   const handleRecurringChange = (isRecurring) => {
-    console.log('Recurrence toggle changed:', isRecurring);
-    setReportData(prev => {
-      const newData = {
-        ...prev,
-        isRecurring
-      };
-      console.log('Updated reportData:', newData);
-      return newData;
-    });
+    setReportData(prev => ({
+      ...prev,
+      isRecurring
+    }));
   };
 
   const handleConfigureRecurrence = () => {
@@ -380,15 +337,95 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   // ===== MEDIA SCREEN HANDLERS =====
-  
-  const handlePickFromDevice = () => {
-    // TODO: Implement file picker
-    console.log('Pick from device clicked');
+  const [uploadingFiles, setUploadingFiles] = useState([]);
+  const [mediaError, setMediaError] = useState('');
+
+  const MAX_MEDIA_FILES = 5;
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
+
+  const uploadFiles = async (fileList) => {
+    setMediaError('');
+    const files = Array.from(fileList);
+    const currentCount = reportData.mediaFiles.length;
+
+    if (currentCount + files.length > MAX_MEDIA_FILES) {
+      setMediaError(`Maximum ${MAX_MEDIA_FILES} files allowed. You can add ${MAX_MEDIA_FILES - currentCount} more.`);
+      return;
+    }
+
+    const errors = [];
+
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`"${file.name}" exceeds the 10 MB limit.`);
+        continue;
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        errors.push(`"${file.name}" is not a supported file type.`);
+        continue;
+      }
+
+      setUploadingFiles(prev => [...prev, { name: file.name }]);
+
+      try {
+        const token = localStorage.getItem('hideandseek_token') || userInfo?.jwtToken;
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/media/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        if (!response.ok) {
+          let errorMsg = `Server error ${response.status}`;
+          try {
+            const text = await response.text();
+            try {
+              const errData = JSON.parse(text);
+              errorMsg = errData.message || errorMsg;
+            } catch {
+              // Not JSON — use first 200 chars of text
+              errorMsg = text.substring(0, 200) || errorMsg;
+            }
+          } catch { /* ignore */ }
+          throw new Error(errorMsg);
+        }
+
+        const { url } = await response.json();
+        const isVideo = file.type.startsWith('video/');
+
+        setReportData(prev => ({
+          ...prev,
+          mediaFiles: [...prev.mediaFiles, { url, name: file.name, type: isVideo ? 'video' : 'image' }]
+        }));
+      } catch (err) {
+        errors.push(`Failed to upload "${file.name}": ${err.message}`);
+      } finally {
+        setUploadingFiles(prev => prev.filter(f => f.name !== file.name));
+      }
+    }
+
+    if (errors.length > 0) {
+      setMediaError(errors.join('\n'));
+    }
   };
 
-  const handleUseCamera = () => {
-    // TODO: Implement camera access
-    console.log('Use camera clicked');
+  const handlePickFromDevice = (fileList) => {
+    uploadFiles(fileList);
+  };
+
+  const handleUseCamera = (fileList) => {
+    uploadFiles(fileList);
+  };
+
+  const handleRemoveMedia = (index) => {
+    setReportData(prev => ({
+      ...prev,
+      mediaFiles: prev.mediaFiles.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSkipMedia = () => {
@@ -398,8 +435,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   // ===== REVIEW SCREEN HANDLERS =====
   
   const handleReviewEdit = (section) => {
-    console.log('Edit section:', section);
-    
     // Navigate to the appropriate screen based on what needs to be edited
     switch (section) {
       case 'category':
@@ -437,8 +472,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   };
 
   const handleConfirm = async () => {
-    console.log('Report confirmed:', reportData);
-
     try {
       // Submit the report to the backend
       const result = await submitNoiseReport();
@@ -462,7 +495,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
   const submitNoiseReport = async () => {
     // Get the JWT token from localStorage or userInfo
-    const token = localStorage.getItem('jwtToken') || userInfo?.jwtToken;
+    const token = localStorage.getItem('hideandseek_token') || userInfo?.jwtToken;
     
     if (!token) {
       throw new Error('No authentication token found');
@@ -501,8 +534,8 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       // Category-specific data
       categorySpecificData: reportData.categorySpecificData || {},
 
-      // Media and contact
-      mediaFiles: reportData.mediaFiles || [],
+      // Media and contact — send just the URLs
+      mediaFiles: (reportData.mediaFiles || []).map(f => typeof f === 'string' ? f : f.url),
       reporterName: reportData.reporterName || '',
       contactEmail: reportData.contactEmail || ''
     };
@@ -540,8 +573,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }
 
     const result = await response.json();
-    console.log('Report submitted successfully:', result);
-    
+
     // Refresh user info to update points display
     if (onUserUpdate) {
       onUserUpdate();
@@ -552,31 +584,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
   const handleCancel = () => {
     // Reset form data and go back to main menu
-    setReportData({
-      selectedCategories: [],
-      searchValue: '',
-      category: '',
-      description: '',
-      noiseLevel: 5,
-      categorySpecificData: {},
-      streetAddress: '',
-      city: '',
-      zipCode: '',
-      location: '',
-      blastRadius: '',
-      timeOption: 'NOW',
-      timeOfDay: '',
-      customDate: '',
-      selectedDate: '',
-      customSlots: [],
-      isRecurring: false,
-      recurrenceConfig: {},
-      mediaFiles: [],
-      selectedPaymentMethod: '',
-      paymentFormData: {},
-      reporterName: '',
-      contactEmail: ''
-    });
+    setReportData(INITIAL_REPORT_DATA);
     
     // If we have a back to main menu function, use it, otherwise navigate to main menu
     if (onBackToMainMenu) {
@@ -604,7 +612,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
   const handlePaymentSubmit = (e) => {
     e.preventDefault();
-    console.log('Payment submitted:', reportData.paymentFormData);
     goToNext();
   };
 
@@ -612,31 +619,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   
   const handleDone = () => {
     // Reset form data and go back to main menu
-    setReportData({
-      selectedCategories: [],
-      searchValue: '',
-      category: '',
-      description: '',
-      noiseLevel: 5,
-      categorySpecificData: {},
-      streetAddress: '',
-      city: '',
-      zipCode: '',
-      location: '',
-      blastRadius: '',
-      timeOption: 'NOW',
-      timeOfDay: '',
-      customDate: '',
-      selectedDate: '',
-      customSlots: [],
-      isRecurring: false,
-      recurrenceConfig: {},
-      mediaFiles: [],
-      selectedPaymentMethod: '',
-      paymentFormData: {},
-      reporterName: '',
-      contactEmail: ''
-    });
+    setReportData(INITIAL_REPORT_DATA);
     
     // If we have a back to main menu function, use it, otherwise navigate to main menu
     if (onBackToMainMenu) {
@@ -653,15 +636,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   
   const renderCurrentScreen = () => {
     switch (currentScreen) {
-      case SCREENS.PRE_LOGIN:
-        return (
-          <PreLoginScreen
-            onLogin={handleLogin}
-            onCreateAccount={handleCreateAccount}
-            onGuestAccess={handleGuestAccess}
-            onSocialLogin={handleSocialLogin}
-          />
-        );
       case SCREENS.MAIN_MENU:
         return (
           <MainMenuScreen
@@ -755,6 +729,9 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
             mediaFiles={reportData.mediaFiles}
             onPickFromDevice={handlePickFromDevice}
             onUseCamera={handleUseCamera}
+            onRemoveMedia={handleRemoveMedia}
+            uploadingFiles={uploadingFiles}
+            mediaError={mediaError}
             onSkip={handleSkipMedia}
             onNext={goToNext}
             onBack={goToPrevious}

@@ -8,19 +8,8 @@ import './OAuthLogin.css';
  * Each button redirects to the appropriate OAuth provider.
  */
 export function OAuthLogin({ onLoginSuccess, onLoginError, forceAccountSelection = false }) {
-  console.log('🔍 DEBUG: OAuthLogin rendered with forceAccountSelection =', forceAccountSelection);
-  
   const handleGoogleLogin = () => {
-    // Always request account selection to allow switching users
-    const url = '/api/auth/google?forceAccountSelection=true';
-    console.log('🔗 DEBUG: Google login URL =', url);
-    console.log('🔧 DEBUG: forceAccountSelection =', forceAccountSelection);
-    window.location.href = url;
-  };
-
-  const handleGoogleLoginWithAccountSelection = () => {
-    console.log('🔗 DEBUG: Manual account selection URL = /api/auth/google?forceAccountSelection=true');
-    window.location.href = '/api/auth/google?forceAccountSelection=true';
+    window.location.href = '/api/auth/google';
   };
 
   const handleFacebookLogin = () => {

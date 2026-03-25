@@ -67,6 +67,11 @@ public class NoiseReportResponse
     /// Total count of reports found (useful for pagination and statistics).
     /// </summary>
     public int TotalCount { get; set; }
+
+    /// <summary>
+    /// Whether there are more reports beyond the current page.
+    /// </summary>
+    public bool HasMore { get; set; }
 }
 
 /// <summary>
@@ -177,4 +182,32 @@ public class NoiseReportDto
     /// Contains additional fields based on the selected category/subcategory.
     /// </summary>
     public string CategorySpecificData { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Current status of the report (Open, Acknowledged, InProgress, Resolved, Closed).
+    /// </summary>
+    public string Status { get; set; } = "Open";
+
+    /// <summary>
+    /// Username of the user who submitted this report.
+    /// </summary>
+    public string SubmittedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Media files attached to the report (JSON array of URLs).
+    /// </summary>
+    public List<string> MediaFiles { get; set; } = new();
+}
+
+/// <summary>
+/// Filter parameters for querying noise reports.
+/// </summary>
+public class ReportFilter
+{
+    public List<string>? Categories { get; set; }
+    public int? MinNoiseLevel { get; set; }
+    public int? MaxNoiseLevel { get; set; }
+    public List<string>? Statuses { get; set; }
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo { get; set; }
 } 

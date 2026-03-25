@@ -202,7 +202,7 @@ public class UserService : IUserService
         {
             var reports = new List<NoiseReport>();
             var query = _noiseReportTableClient.QueryAsync<NoiseReport>(
-                filter: $"SubmittedBy eq '{username}'"
+                r => r.SubmittedBy == username
             );
 
             await foreach (var report in query)
@@ -229,7 +229,7 @@ public class UserService : IUserService
             // First, find the report by querying across all partitions since we don't know the partition key
             var reports = new List<NoiseReport>();
             var query = _noiseReportTableClient.QueryAsync<NoiseReport>(
-                filter: $"RowKey eq '{reportRowKey}' and SubmittedBy eq '{username}'"
+                r => r.RowKey == reportRowKey && r.SubmittedBy == username
             );
 
             await foreach (var report in query)

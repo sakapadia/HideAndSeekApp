@@ -12,7 +12,7 @@ namespace HideandSeek.Server.Services;
 /// </summary>
 public interface IOAuthService
 {
-    string GetGoogleAuthUrl(bool forceAccountSelection = false);
+    string GetGoogleAuthUrl();
     string GetFacebookAuthUrl();
     string GetMicrosoftAuthUrl();
     Task<OAuthUserInfo> ValidateGoogleTokenAsync(string accessToken);
@@ -33,25 +33,17 @@ public class OAuthService : IOAuthService
         _logger = logger;
     }
 
-    public string GetGoogleAuthUrl(bool forceAccountSelection = false)
+    public string GetGoogleAuthUrl()
     {
         var clientId = _configuration["OAuth:Google:ClientId"];
         var redirectUri = _configuration["OAuth:Google:RedirectUri"];
-        
+
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(redirectUri))
         {
             throw new InvalidOperationException("Google OAuth configuration is missing");
         }
-        
-        // Corrected Scope string
-        var scopeString = "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
-        // Always encourage account selection; include consent to ensure refresh token issuance
-        // Note: Google allows space-delimited prompt values
-        var prompt = forceAccountSelection ? "select_account consent" : "select_account consent";
-        
-        _logger.LogInformation("🔧 DEBUG: GetGoogleAuthUrl called with forceAccountSelection = {ForceAccountSelection}", forceAccountSelection);
-        _logger.LogInformation("🔧 DEBUG: Using prompt = {Prompt}", prompt);
+        var scopeString = "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
         var authUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
                $"client_id={clientId}&" +
@@ -59,10 +51,7 @@ public class OAuthService : IOAuthService
                $"response_type=code&" +
                $"scope={Uri.EscapeDataString(scopeString)}&" +
                $"access_type=offline&" +
-               $"prompt={prompt}";
-
-        _logger.LogInformation("Generated Google OAuth URL with scopes: {Scopes}", scopeString);
-        _logger.LogInformation("Full Google OAuth URL: {Url}", authUrl);
+               $"prompt=select_account consent";
 
         return authUrl;
     }
@@ -243,34 +232,6 @@ public class OAuthUserInfo
 }
 
 // OAuth provider response models
-public class GooglePeopleInfo
-{
-    public string? ResourceName { get; set; }
-    public List<GooglePersonName>? Names { get; set; }
-    public List<GooglePersonEmail>? EmailAddresses { get; set; }
-    public List<GooglePersonPhoto>? Photos { get; set; }
-}
-
-public class GooglePersonName
-{
-    public string? DisplayName { get; set; }
-    public string? GivenName { get; set; }
-    public string? FamilyName { get; set; }
-}
-
-public class GooglePersonEmail
-{
-    public string? Value { get; set; }
-    public string? Type { get; set; }
-}
-
-public class GooglePersonPhoto
-{
-    public string? Url { get; set; }
-    public bool? Default { get; set; }
-}
-
-// Legacy model for backward compatibility
 public class GoogleUserInfo
 {
     [JsonPropertyName("id")]

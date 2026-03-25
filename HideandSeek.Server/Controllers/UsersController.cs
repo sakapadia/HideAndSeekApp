@@ -186,46 +186,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// GET /api/users/debug/all
-    /// 
-    /// DEBUG ENDPOINT: Retrieves all users from Azure Table Storage.
-    /// Used for debugging and verifying user storage.
-    /// </summary>
-    /// <returns>List of all users (without sensitive information)</returns>
-    [HttpGet("debug/all")]
-    public async Task<ActionResult<List<object>>> GetAllUsers()
-    {
-        try
-        {
-            var allUsers = await _userService.GetAllUsersAsync();
-            var users = new List<object>();
-            
-            foreach (var user in allUsers)
-            {
-                users.Add(new
-                {
-                    user.RowKey,
-                    user.DisplayName,
-                    user.Email,
-                    user.Points,
-                    user.CreatedDate,
-                    user.LastLoginDate,
-                    user.ProfilePictureUrl,
-                    user.IsActive,
-                    user.Timezone,
-                    user.OAuthProvider
-                });
-            }
-            
-            return Ok(users);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving all users");
-            return StatusCode(500, "An error occurred while retrieving users");
-        }
-    }
 }
 
 /// <summary>

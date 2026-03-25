@@ -24,10 +24,6 @@ export const UserProfile = ({
   selectedMode,
   onChangeMode
 }) => {
-  console.log('UserProfile: Component rendered');
-  console.log('UserProfile: userInfo:', userInfo);
-  console.log('UserProfile: onClose function:', onClose);
-  console.log('UserProfile: Component props received');
   const [userProfile, setUserProfile] = useState(null);
   const [userReports, setUserReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,11 +44,15 @@ export const UserProfile = ({
     } else {
       setLoading(false);
     }
-  }, [userInfo.userId]);
+  }, [userInfo.userId, userInfo.jwtToken]);
 
   const fetchUserProfile = async () => {
     try {
-      const response = await fetch(`/api/users/${userInfo.userId}/profile`);
+      const response = await fetch(`/api/users/${userInfo.userId}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${userInfo.jwtToken}`
+        }
+      });
       if (response.ok) {
         const profile = await response.json();
         setUserProfile(profile);
@@ -129,7 +129,8 @@ export const UserProfile = ({
       const response = await fetch(`/api/users/${userInfo.userId}/profile`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userInfo.jwtToken}`
         },
         body: JSON.stringify(editForm)
       });
@@ -464,10 +465,60 @@ export const UserProfile = ({
                       </button>
                     </div>
                     <div className="report-content">
-                      <div className="report-type">{report.noiseType}</div>
+                      <div className="report-type">
+                        {report.noiseType}
+                        <span className={`status-badge status-${(report.status || 'Open').toLowerCase()}`}>
+                          {report.status || 'Open'}
+                        </span>
+                      </div>
                       <div className="report-description">{report.description}</div>
                       <div className="report-location">
-                        📍 {report.address || `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`}
+                        📍 {report.address || (report.latitude != null ? `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}` : 'Unknown location')}
+                      </div>
+                      {report.mediaFiles && report.mediaFiles.length > 0 && (
+                        <div className="report-media-thumbs">
+                          {report.mediaFiles.map((url, i) => (
+                            <img key={i} src={url} alt={`Media ${i + 1}`} className="report-media-thumb" onClick={() => window.open(url)} />
+                          ))}
+                        </div>
+                      )}
+                      <div className="report-status-actions">
+                        {(report.status === 'Open' || report.status === 'Acknowledged' || report.status === 'InProgress' || !report.status) && (
+                          <button
+                            className="status-action-btn status-resolve-btn"
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem('hideandseek_token');
+                                const res = await fetch(`/api/noisereports/${report.id}/status`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                  body: JSON.stringify({ status: 'Resolved' })
+                                });
+                                if (res.ok) fetchUserReports();
+                              } catch (e) { console.error(e); }
+                            }}
+                          >
+                            Mark Resolved
+                          </button>
+                        )}
+                        {(report.status === 'Resolved' || report.status === 'Closed') && (
+                          <button
+                            className="status-action-btn status-reopen-btn"
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem('hideandseek_token');
+                                const res = await fetch(`/api/noisereports/${report.id}/status`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                  body: JSON.stringify({ status: 'Open' })
+                                });
+                                if (res.ok) fetchUserReports();
+                              } catch (e) { console.error(e); }
+                            }}
+                          >
+                            Reopen
+                          </button>
+                        )}
                       </div>
                       {/* Category-Specific Details */}
                       {(() => {

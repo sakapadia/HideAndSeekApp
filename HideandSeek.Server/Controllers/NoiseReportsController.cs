@@ -4,6 +4,7 @@ using HideandSeek.Server.Services;
 using Microsoft.AspNetCore.Authorization; // Added for Authorize attribute
 using System.Text.RegularExpressions;
 using System.Linq;
+using Azure;
 
 namespace HideandSeek.Server.Controllers;
 
@@ -65,10 +66,20 @@ public class NoiseReportsController : ControllerBase
         [FromQuery] double minLon,
         [FromQuery] double maxLon,
         [FromQuery] string? zipCodes,
-        [FromQuery] DateTime? since)
+        [FromQuery] DateTime? since,
+        [FromQuery] string? category,
+        [FromQuery] int? minNoiseLevel,
+        [FromQuery] int? maxNoiseLevel,
+        [FromQuery] string? status,
+        [FromQuery] DateTime? dateFrom,
+        [FromQuery] DateTime? dateTo,
+        [FromQuery] int pageSize = 200)
     {
         try
         {
+            // Clamp pageSize between 1 and 500
+            pageSize = Math.Clamp(pageSize, 1, 500);
+
             // Build the map bounds object from query parameters
             var bounds = new MapBounds
             {
@@ -77,18 +88,33 @@ public class NoiseReportsController : ControllerBase
                 MinLongitude = minLon,
                 MaxLongitude = maxLon,
                 // Parse comma-separated ZIP codes into a list
-                ZipCodes = !string.IsNullOrEmpty(zipCodes) 
-                    ? zipCodes.Split(',').Select(z => z.Trim()).ToList() 
+                ZipCodes = !string.IsNullOrEmpty(zipCodes)
+                    ? zipCodes.Split(',').Select(z => z.Trim()).ToList()
                     : new List<string>()
             };
 
+            // Build filter object from query parameters
+            ReportFilter? filter = null;
+            if (category != null || minNoiseLevel != null || maxNoiseLevel != null || status != null || dateFrom != null || dateTo != null)
+            {
+                filter = new ReportFilter
+                {
+                    Categories = !string.IsNullOrEmpty(category) ? category.Split(',').Select(c => c.Trim()).ToList() : null,
+                    MinNoiseLevel = minNoiseLevel,
+                    MaxNoiseLevel = maxNoiseLevel,
+                    Statuses = !string.IsNullOrEmpty(status) ? status.Split(',').Select(s => s.Trim()).ToList() : null,
+                    DateFrom = dateFrom,
+                    DateTo = dateTo
+                };
+            }
+
             // Retrieve noise reports from the storage service
-            var response = await _tableStorageService.GetNoiseReportsAsync(bounds, since);
+            var response = await _tableStorageService.GetNoiseReportsAsync(bounds, since, filter, pageSize);
             return Ok(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving noise reports for bounds: minLat={MinLat}, maxLat={MaxLat}, minLon={MinLon}, maxLon={MaxLon}", 
+            _logger.LogError(ex, "Error retrieving noise reports for bounds: minLat={MinLat}, maxLat={MaxLat}, minLon={MinLon}, maxLon={MaxLon}",
                 minLat, maxLat, minLon, maxLon);
             return StatusCode(500, "An error occurred while retrieving noise reports");
         }
@@ -312,7 +338,8 @@ public class NoiseReportsController : ControllerBase
                 
                 // Set JSON fields using helper methods
                 ReportDate = DateTime.UtcNow,
-                PointsAwarded = 10
+                PointsAwarded = 10,
+                Status = "Open"
             };
 
             // Set categories
@@ -491,7 +518,10 @@ public class NoiseReportsController : ControllerBase
                 CustomDate = report.CustomDate ?? string.Empty,
                 RecurrenceConfig = report.RecurrenceConfig ?? string.Empty,
                 CustomSlots = report.CustomSlots ?? string.Empty,
-                CategorySpecificData = report.CategorySpecificData ?? string.Empty
+                CategorySpecificData = report.CategorySpecificData ?? string.Empty,
+                Status = report.Status ?? "Open",
+                SubmittedBy = report.SubmittedBy ?? string.Empty,
+                MediaFiles = report.GetMediaFilesList()
             }).ToList();
 
             return Ok(reportDtos);
@@ -572,43 +602,57 @@ public class NoiseReportsController : ControllerBase
                 return BadRequest(new { message = "Report ID is required" });
             }
 
-            // Get the report from storage
-            var report = await _tableStorageService.GetNoiseReportAsync(reportId);
-            if (report == null)
+            // Retry loop to handle TOCTOU race conditions (ETag conflicts)
+            for (int attempt = 0; attempt < 3; attempt++)
             {
-                return NotFound(new { message = "Report not found" });
-            }
-
-            // Check if user has already upvoted
-            if (report.HasUserUpvoted(username))
-            {
-                return Ok(new UpvoteResponse
+                // Get the report from storage
+                var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+                if (report == null)
                 {
-                    Upvotes = report.Upvotes,
-                    HasUserUpvoted = true,
-                    Message = "You have already upvoted this report"
-                });
+                    return NotFound(new { message = "Report not found" });
+                }
+
+                // Check if user has already upvoted
+                if (report.HasUserUpvoted(username))
+                {
+                    return Ok(new UpvoteResponse
+                    {
+                        Upvotes = report.Upvotes,
+                        HasUserUpvoted = true,
+                        Message = "You have already upvoted this report"
+                    });
+                }
+
+                // Add upvote
+                var upvoteAdded = report.AddUpvote(username);
+                if (!upvoteAdded)
+                {
+                    return BadRequest(new { message = "Failed to add upvote" });
+                }
+
+                try
+                {
+                    // Update the report in storage
+                    await _tableStorageService.UpdateNoiseReportAsync(report);
+
+                    _logger.LogInformation("User {Username} upvoted report {ReportId}. New upvote count: {Upvotes}",
+                        username, reportId, report.Upvotes);
+
+                    return Ok(new UpvoteResponse
+                    {
+                        Upvotes = report.Upvotes,
+                        HasUserUpvoted = true,
+                        Message = "Upvote added successfully"
+                    });
+                }
+                catch (RequestFailedException ex) when (ex.Status == 412)
+                {
+                    _logger.LogWarning("ETag conflict on upvote for report {ReportId}, attempt {Attempt}", reportId, attempt + 1);
+                    if (attempt == 2) throw;
+                }
             }
 
-            // Add upvote
-            var upvoteAdded = report.AddUpvote(username);
-            if (!upvoteAdded)
-            {
-                return BadRequest(new { message = "Failed to add upvote" });
-            }
-
-            // Update the report in storage
-            await _tableStorageService.UpdateNoiseReportAsync(report);
-
-            _logger.LogInformation("User {Username} upvoted report {ReportId}. New upvote count: {Upvotes}", 
-                username, reportId, report.Upvotes);
-
-            return Ok(new UpvoteResponse
-            {
-                Upvotes = report.Upvotes,
-                HasUserUpvoted = true,
-                Message = "Upvote added successfully"
-            });
+            return StatusCode(500, new { message = "Failed to upvote after multiple attempts" });
         }
         catch (Exception ex)
         {
@@ -665,8 +709,59 @@ public class NoiseReportsController : ControllerBase
     }
 
     /// <summary>
+    /// POST /api/noisereports/upvote-status-batch
+    ///
+    /// Gets upvote status for multiple reports in a single request.
+    /// Replaces N+1 individual upvote-status calls.
+    /// </summary>
+    [HttpPost("upvote-status-batch")]
+    [Authorize]
+    public async Task<ActionResult> GetUpvoteStatusBatch([FromBody] List<string> reportIds)
+    {
+        try
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            if (reportIds == null || reportIds.Count == 0)
+            {
+                return BadRequest(new { message = "Report IDs are required" });
+            }
+
+            // Cap at 200 to prevent abuse
+            if (reportIds.Count > 200)
+            {
+                reportIds = reportIds.Take(200).ToList();
+            }
+
+            var tasks = reportIds.Select(async reportId =>
+            {
+                var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+                if (report == null) return null;
+                return new
+                {
+                    reportId,
+                    upvotes = report.Upvotes,
+                    hasUserUpvoted = report.HasUserUpvoted(username)
+                };
+            });
+
+            var results = (await Task.WhenAll(tasks)).Where(r => r != null).ToList();
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting batch upvote status");
+            return StatusCode(500, new { message = "An error occurred while getting upvote status" });
+        }
+    }
+
+    /// <summary>
     /// POST /api/noisereports/{reportId}/comments
-    /// 
+    ///
     /// Adds a comment to an existing noise report.
     /// Used by the frontend when users want to add additional information to a report.
     /// </summary>
@@ -778,6 +873,81 @@ public class NoiseReportsController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while retrieving the report" });
         }
     }
+
+    /// <summary>
+    /// PUT /api/noisereports/{reportId}/status
+    ///
+    /// Updates the status of a noise report.
+    /// Only the report author can change the status.
+    /// </summary>
+    [HttpPut("{reportId}/status")]
+    [Authorize]
+    public async Task<ActionResult> UpdateReportStatus(string reportId, [FromBody] UpdateStatusRequest request)
+    {
+        try
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            if (string.IsNullOrEmpty(reportId))
+            {
+                return BadRequest(new { message = "Report ID is required" });
+            }
+
+            var allowedStatuses = new[] { "Open", "Acknowledged", "InProgress", "Resolved", "Closed" };
+            if (string.IsNullOrEmpty(request?.Status) || !allowedStatuses.Contains(request.Status))
+            {
+                return BadRequest(new { message = "Invalid status. Allowed values: Open, Acknowledged, InProgress, Resolved, Closed" });
+            }
+
+            // Retry loop to handle TOCTOU race conditions (ETag conflicts)
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+                if (report == null)
+                {
+                    return NotFound(new { message = "Report not found" });
+                }
+
+                if (report.SubmittedBy != username)
+                {
+                    return Forbid();
+                }
+
+                report.Status = request.Status;
+
+                try
+                {
+                    await _tableStorageService.UpdateNoiseReportAsync(report);
+                    break;
+                }
+                catch (RequestFailedException ex) when (ex.Status == 412)
+                {
+                    _logger.LogWarning("ETag conflict on status update for report {ReportId}, attempt {Attempt}", reportId, attempt + 1);
+                    if (attempt == 2) throw;
+                }
+            }
+
+            _logger.LogInformation("User {Username} updated report {ReportId} status to {Status}", username, reportId, request.Status);
+            return Ok(new { message = "Status updated successfully", status = request.Status });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating status for report {ReportId}", reportId);
+            return StatusCode(500, new { message = "An error occurred while updating the report status" });
+        }
+    }
+}
+
+/// <summary>
+/// Request model for updating report status.
+/// </summary>
+public class UpdateStatusRequest
+{
+    public string Status { get; set; } = string.Empty;
 }
 
 /// <summary>

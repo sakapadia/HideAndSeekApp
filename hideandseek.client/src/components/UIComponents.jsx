@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 // ===== REUSABLE UI COMPONENTS =====
 // These components match the design specification for the multi-step reporting flow
@@ -160,92 +160,6 @@ export const SearchBar = ({
 };
 
 /**
- * Map component wrapper
- */
-export const Map = ({ 
-  id, 
-  initialView = "currentLocation",
-  showAddressPreview = true,
-  streetViewToggle = true,
-  satelliteViewToggle = true,
-  zoomControls = true,
-  onLocationChange,
-  selectedAddress = "",
-  className = ""
-}) => {
-  const [clickedCoordinates, setClickedCoordinates] = useState(null);
-
-  // Mock coordinates for demo purposes - in production this would use Google Maps API
-  const mockCoordinates = {
-    "123 Main St": { lat: 40.7128, lng: -74.0060 },
-    "456 Oak Ave": { lat: 40.7589, lng: -73.9851 },
-    "789 Pine Rd": { lat: 40.7505, lng: -73.9934 },
-    "321 Elm St": { lat: 40.7484, lng: -73.9857 },
-    "654 Maple Dr": { lat: 40.7527, lng: -73.9772 },
-    "100 Broadway": { lat: 40.7580, lng: -73.9855 },
-    "200 5th Ave": { lat: 40.7402, lng: -73.9897 },
-    "300 Park Ave": { lat: 40.7505, lng: -73.9764 },
-    "400 Madison Ave": { lat: 40.7589, lng: -73.9731 },
-    "500 Lexington Ave": { lat: 40.7505, lng: -73.9731 }
-  };
-
-  const handleAddressSearch = () => {
-    if (selectedAddress && mockCoordinates[selectedAddress]) {
-      const coords = mockCoordinates[selectedAddress];
-      onLocationChange?.(coords);
-      setClickedCoordinates(null); // Clear clicked coordinates when address is used
-    } else if (selectedAddress) {
-      // Generate mock coordinates for any address (demo purposes)
-      // Use a hash of the address to generate consistent coordinates
-      const hash = selectedAddress.split('').reduce((a, b) => {
-        a = ((a << 5) - a + b.charCodeAt(0)) & 0xFFFFFFFF;
-        return a;
-      }, 0);
-      
-      const lat = 40.7 + (Math.abs(hash) % 100) / 1000;
-      const lng = -74.0 + (Math.abs(hash >> 16) % 100) / 1000;
-      onLocationChange?.({ lat, lng });
-      setClickedCoordinates(null); // Clear clicked coordinates when address is used
-    }
-  };
-
-  const handleMapClick = (e) => {
-    // Simulate getting coordinates from map click
-    // In production, this would use the actual map API
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Convert click position to mock coordinates
-    const lat = 40.7 + (y / rect.height) * 0.1;
-    const lng = -74.0 + (x / rect.width) * 0.1;
-    
-    const coords = { lat, lng };
-    onLocationChange?.(coords);
-    setClickedCoordinates(coords);
-  };
-
-  // Auto-update coordinates when address changes
-  React.useEffect(() => {
-    if (selectedAddress) {
-      handleAddressSearch();
-    }
-  }, [selectedAddress]);
-
-  return (
-    <div id={id} className={`map-container ${className}`}>
-      <div className="map-content" onClick={handleMapClick}>
-        {/* Google Maps will be initialized here */}
-        <div className="map-instructions">
-          <p>🗺️ Interactive Map</p>
-          <p>📍 Type an address above or click on the map to select coordinates</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
  * Radio group component
  */
 export const RadioGroup = ({ 
@@ -364,9 +278,7 @@ export const Toggle = ({
   className = "" 
 }) => {
   const handleToggle = () => {
-    const newValue = !checked;
-    console.log('Toggle clicked! Current:', checked, 'New:', newValue);
-    onChange?.(newValue);
+    onChange?.(!checked);
   };
   
   return (

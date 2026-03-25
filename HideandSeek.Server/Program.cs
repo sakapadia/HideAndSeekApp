@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using HideandSeek.Server.Services;
 using Azure.Data.Tables;
+using Azure.Storage.Blobs;
 
 // ===== APPLICATION STARTUP CONFIGURATION =====
 // This file configures the ASP.NET Core application, including:
@@ -16,6 +17,9 @@ using Azure.Data.Tables;
 // - API documentation with Swagger
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load optional local secrets file (gitignored)
+builder.Configuration.AddJsonFile("appsettings.private.json", optional: true, reloadOnChange: true);
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -34,7 +38,8 @@ builder.Services.AddCors(options =>
 });
 
 // Add JWT Authentication
-var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ?? "your-super-secret-key-with-at-least-32-characters";
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"]
+    ?? throw new InvalidOperationException("JwtSettings:SecretKey must be configured. Set it via environment variables, user-secrets, or Azure App Settings.");
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "HideandSeek";
 var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "HideandSeekUsers";
 
@@ -69,6 +74,14 @@ builder.Services.AddScoped<ReportMergingService>();
 // Add geocoding service with HttpClient factory
 // This ensures HttpClient is properly injected and managed
 builder.Services.AddHttpClient<IGeocodingService, GoogleMapsGeocodingService>();
+
+// Register Azure Blob Storage services for media upload
+var blobConnectionString = builder.Configuration["AzureStorage:ConnectionString"];
+if (!string.IsNullOrEmpty(blobConnectionString))
+{
+    builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
+    builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+}
 
 var app = builder.Build();
 
