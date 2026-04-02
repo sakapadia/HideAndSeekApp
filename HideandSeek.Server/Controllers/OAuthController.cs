@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace HideandSeek.Server.Controllers;
 
@@ -19,17 +21,26 @@ public class OAuthController : ControllerBase
     private readonly IOAuthService _oauthService;
     private readonly IUserService _userService;
     private readonly IJwtService _jwtService;
+    private readonly ITokenEncryptionService _tokenEncryption;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<OAuthController> _logger;
 
     public OAuthController(
-        IOAuthService oauthService, 
-        IUserService userService, 
-        IJwtService jwtService, 
+        IOAuthService oauthService,
+        IUserService userService,
+        IJwtService jwtService,
+        ITokenEncryptionService tokenEncryption,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
         ILogger<OAuthController> logger)
     {
         _oauthService = oauthService;
         _userService = userService;
         _jwtService = jwtService;
+        _tokenEncryption = tokenEncryption;
+        _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -100,46 +111,32 @@ public class OAuthController : ControllerBase
     /// If the user already exists, their data (points, reports, etc.) is preserved.
     /// </summary>
     [HttpGet("google/callback")]
-    public async Task<IActionResult> GoogleCallback([FromQuery] string code, [FromQuery] string? error)
+    public async Task<IActionResult> GoogleCallback([FromQuery] string code, [FromQuery] string? error, [FromQuery] string? state)
     {
         if (!string.IsNullOrEmpty(error))
         {
-            return Redirect("/?error=oauth_cancelled");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_cancelled");
+        }
+
+        if (string.IsNullOrEmpty(state) || !_oauthService.ValidateOAuthState(state))
+        {
+            _logger.LogWarning("Invalid or missing OAuth state parameter in Google callback");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_invalid_state");
         }
 
         try
         {
-            _logger.LogInformation("Starting Google OAuth callback processing...");
-            
-            // Exchange authorization code for access token
             var tokenResponse = await ExchangeGoogleCodeForToken(code);
-            _logger.LogInformation("Token exchange completed successfully");
-            
-            // Get user info from Google
-            _logger.LogInformation("Calling ValidateGoogleTokenAsync with access token...");
             var oauthInfo = await _oauthService.ValidateGoogleTokenAsync(tokenResponse.AccessToken);
-            _logger.LogInformation("Token validation completed successfully");
-            
-            // Find or create user
             var user = await GetOrCreateUser(oauthInfo, tokenResponse.AccessToken, tokenResponse.RefreshToken);
-            _logger.LogInformation("User processing completed: {UserId}", user.RowKey);
-            
-            // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
-            _logger.LogInformation("JWT token generated successfully");
 
-            // Redirect to frontend with token
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
+            return Redirect($"{GetSafeFrontendUrl()}/?token={Uri.EscapeDataString(jwtToken)}&provider=google");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in Google OAuth callback: {Message}", ex.Message);
-            _logger.LogError("Stack trace: {StackTrace}", ex.StackTrace);
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?error=oauth_failed&details={Uri.EscapeDataString(ex.Message)}");
+            _logger.LogError(ex, "Error in Google OAuth callback");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_failed");
         }
     }
 
@@ -150,38 +147,32 @@ public class OAuthController : ControllerBase
     /// If the user already exists, their data (points, reports, etc.) is preserved.
     /// </summary>
     [HttpGet("facebook/callback")]
-    public async Task<IActionResult> FacebookCallback([FromQuery] string code, [FromQuery] string? error)
+    public async Task<IActionResult> FacebookCallback([FromQuery] string code, [FromQuery] string? error, [FromQuery] string? state)
     {
         if (!string.IsNullOrEmpty(error))
         {
-            return Redirect("/?error=oauth_cancelled");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_cancelled");
+        }
+
+        if (string.IsNullOrEmpty(state) || !_oauthService.ValidateOAuthState(state))
+        {
+            _logger.LogWarning("Invalid or missing OAuth state parameter in Facebook callback");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_invalid_state");
         }
 
         try
         {
-            // Exchange authorization code for access token
             var tokenResponse = await ExchangeFacebookCodeForToken(code);
-            
-            // Get user info from Facebook
             var oauthInfo = await _oauthService.ValidateFacebookTokenAsync(tokenResponse.AccessToken);
-            
-            // Find or create user
             var user = await GetOrCreateUser(oauthInfo, tokenResponse.AccessToken, tokenResponse.RefreshToken);
-            
-            // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
 
-            // Redirect to frontend with token
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
+            return Redirect($"{GetSafeFrontendUrl()}/?token={Uri.EscapeDataString(jwtToken)}&provider=facebook");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Facebook OAuth callback");
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?error=oauth_failed");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_failed");
         }
     }
 
@@ -192,38 +183,32 @@ public class OAuthController : ControllerBase
     /// If the user already exists, their data (points, reports, etc.) is preserved.
     /// </summary>
     [HttpGet("microsoft/callback")]
-    public async Task<IActionResult> MicrosoftCallback([FromQuery] string code, [FromQuery] string? error)
+    public async Task<IActionResult> MicrosoftCallback([FromQuery] string code, [FromQuery] string? error, [FromQuery] string? state)
     {
         if (!string.IsNullOrEmpty(error))
         {
-            return Redirect("/?error=oauth_cancelled");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_cancelled");
+        }
+
+        if (string.IsNullOrEmpty(state) || !_oauthService.ValidateOAuthState(state))
+        {
+            _logger.LogWarning("Invalid or missing OAuth state parameter in Microsoft callback");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_invalid_state");
         }
 
         try
         {
-            // Exchange authorization code for access token
             var tokenResponse = await ExchangeMicrosoftCodeForToken(code);
-            
-            // Get user info from Microsoft
             var oauthInfo = await _oauthService.ValidateMicrosoftTokenAsync(tokenResponse.AccessToken);
-            
-            // Find or create user
             var user = await GetOrCreateUser(oauthInfo, tokenResponse.AccessToken, tokenResponse.RefreshToken);
-            
-            // Generate JWT token
             var jwtToken = _jwtService.GenerateToken(user);
 
-            // Redirect to frontend with token
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
+            return Redirect($"{GetSafeFrontendUrl()}/?token={Uri.EscapeDataString(jwtToken)}&provider=microsoft");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in Microsoft OAuth callback");
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var frontendUrl = configuration["OAuth:FrontendUrl"] ?? "https://hideandseekapp.azurewebsites.net";
-            return Redirect($"{frontendUrl}/?error=oauth_failed");
+            return Redirect($"{GetSafeFrontendUrl()}/?error=oauth_failed");
         }
     }
 
@@ -271,6 +256,7 @@ public class OAuthController : ControllerBase
     /// 
     /// Logs out the user by revoking OAuth tokens and clearing session.
     /// </summary>
+    [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
     {
@@ -298,10 +284,14 @@ public class OAuthController : ControllerBase
                 return NotFound("User not found");
             }
 
-            // Revoke OAuth tokens based on provider
+            // Decrypt and revoke OAuth tokens based on provider
             if (!string.IsNullOrEmpty(user.OAuthAccessToken))
             {
-                await RevokeOAuthTokens(user.OAuthProvider, user.OAuthAccessToken, user.OAuthRefreshToken);
+                var decryptedAccessToken = _tokenEncryption.Decrypt(user.OAuthAccessToken);
+                var decryptedRefreshToken = !string.IsNullOrEmpty(user.OAuthRefreshToken)
+                    ? _tokenEncryption.Decrypt(user.OAuthRefreshToken)
+                    : null;
+                await RevokeOAuthTokens(user.OAuthProvider, decryptedAccessToken, decryptedRefreshToken);
             }
 
             // Clear OAuth tokens in database
@@ -329,7 +319,7 @@ public class OAuthController : ControllerBase
     [HttpGet("logout-urls")]
     public IActionResult GetLogoutUrls()
     {
-        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var configuration = _configuration;
         
         var logoutUrls = new
         {
@@ -341,73 +331,85 @@ public class OAuthController : ControllerBase
         return Ok(logoutUrls);
     }
 
+    /// <summary>
+    /// Returns a validated frontend URL from config, falling back to the production URL.
+    /// Prevents open redirect by validating against allowed CORS origins.
+    /// </summary>
+    private string GetSafeFrontendUrl()
+    {
+        var configuration = _configuration;
+        var frontendUrl = configuration["OAuth:FrontendUrl"]?.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(frontendUrl))
+            return "https://hideandseekapp.azurewebsites.net";
+
+        // Validate against allowed CORS origins
+        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? new[] { "https://hideandseekapp.azurewebsites.net" };
+
+        if (allowedOrigins.Any(o => o.Equals(frontendUrl, StringComparison.OrdinalIgnoreCase)))
+            return frontendUrl;
+
+        _logger.LogWarning("OAuth:FrontendUrl '{FrontendUrl}' is not in the allowed CORS origins, using default", frontendUrl);
+        return "https://hideandseekapp.azurewebsites.net";
+    }
+
     private async Task<User> GetOrCreateUser(OAuthUserInfo oauthInfo, string accessToken, string? refreshToken)
     {
-        _logger.LogInformation("Looking up user by OAuth provider: {Provider}, ProviderId: {ProviderId}", 
-            oauthInfo.Provider, oauthInfo.ProviderId);
-        
+        // Encrypt tokens before storing
+        var encryptedAccessToken = _tokenEncryption.Encrypt(accessToken);
+        var encryptedRefreshToken = !string.IsNullOrEmpty(refreshToken)
+            ? _tokenEncryption.Encrypt(refreshToken)
+            : string.Empty;
+
         // Try to find existing user
         var existingUser = await _userService.GetUserByOAuthAsync(oauthInfo.Provider, oauthInfo.ProviderId);
-        
+
         if (existingUser != null)
         {
-            _logger.LogInformation("Found existing user: {UserId}, DisplayName: {DisplayName}, Points: {Points}", 
-                existingUser.RowKey, existingUser.DisplayName, existingUser.Points);
-            
-            // Update tokens for existing user
-            existingUser.OAuthAccessToken = accessToken;
+            // Update encrypted tokens for existing user
+            existingUser.OAuthAccessToken = encryptedAccessToken;
             if (!string.IsNullOrEmpty(refreshToken))
             {
-                existingUser.OAuthRefreshToken = refreshToken;
+                existingUser.OAuthRefreshToken = encryptedRefreshToken;
             }
             existingUser.OAuthTokenExpiresAt = DateTime.UtcNow.AddHours(1);
-            existingUser.LastLoginDate = DateTime.UtcNow; // Update last login time
-            
+            existingUser.LastLoginDate = DateTime.UtcNow;
+
             // Update profile info if it changed
-            if (existingUser.DisplayName != oauthInfo.DisplayName || 
+            if (existingUser.DisplayName != oauthInfo.DisplayName ||
                 existingUser.Email != oauthInfo.Email ||
                 existingUser.ProfilePictureUrl != (oauthInfo.ProfilePictureUrl ?? string.Empty))
             {
-                _logger.LogInformation("Updating user profile information for user: {UserId}", existingUser.RowKey);
                 existingUser.DisplayName = oauthInfo.DisplayName;
                 existingUser.Email = oauthInfo.Email;
                 existingUser.ProfilePictureUrl = oauthInfo.ProfilePictureUrl ?? string.Empty;
             }
-            
+
             await _userService.UpdateOAuthUserAsync(existingUser);
-            _logger.LogInformation("Successfully updated existing user: {UserId}", existingUser.RowKey);
             return existingUser;
         }
         else
         {
-            _logger.LogInformation("No existing user found, creating new user for provider: {Provider}, ProviderId: {ProviderId}", 
-                oauthInfo.Provider, oauthInfo.ProviderId);
-            
-            // Create new user
-            var newUser = await _userService.CreateOAuthUserAsync(oauthInfo, accessToken, refreshToken);
-            _logger.LogInformation("Successfully created new user: {UserId}, DisplayName: {DisplayName}", 
-                newUser.RowKey, newUser.DisplayName);
+            // Create new user with encrypted tokens
+            var newUser = await _userService.CreateOAuthUserAsync(oauthInfo, encryptedAccessToken, encryptedRefreshToken);
             return newUser;
         }
     }
 
     private async Task<TokenResponse> ExchangeGoogleCodeForToken(string code)
     {
-        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var configuration = _configuration;
         var clientId = configuration["OAuth:Google:ClientId"];
         var clientSecret = configuration["OAuth:Google:ClientSecret"];
         var redirectUri = configuration["OAuth:Google:RedirectUri"];
-
-        _logger.LogInformation("Google OAuth config - ClientId: {ClientId}, RedirectUri: {RedirectUri}", 
-            clientId, redirectUri);
-        _logger.LogInformation("Authorization code received: {CodeLength} characters", code.Length);
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret) || string.IsNullOrEmpty(redirectUri))
         {
             throw new InvalidOperationException("Google OAuth configuration is missing");
         }
 
-        using var httpClient = new HttpClient();
+        var httpClient = _httpClientFactory.CreateClient();
         var tokenRequest = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("client_id", clientId),
@@ -417,16 +419,13 @@ public class OAuthController : ControllerBase
             new KeyValuePair<string, string>("redirect_uri", redirectUri)
         });
 
-        _logger.LogInformation("Making token exchange request to Google...");
         var response = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
         var content = await response.Content.ReadAsStringAsync();
-        
-        _logger.LogInformation("Google token exchange response status: {StatusCode}", response.StatusCode);
-        _logger.LogInformation("Google token exchange response content: {Content}", content);
-        
+
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"Google token exchange failed: {content}");
+            _logger.LogError("Google token exchange failed with status {StatusCode}", response.StatusCode);
+            throw new InvalidOperationException("Google token exchange failed");
         }
 
         var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(content);
@@ -435,17 +434,12 @@ public class OAuthController : ControllerBase
             throw new InvalidOperationException("Invalid token response");
         }
 
-        _logger.LogInformation("Google access token received: {TokenLength} characters", tokenResponse.AccessToken.Length);
-        _logger.LogInformation("Access token starts with: {TokenStart}", tokenResponse.AccessToken.Substring(0, Math.Min(20, tokenResponse.AccessToken.Length)));
-        _logger.LogInformation("Token type: {TokenType}", tokenResponse.TokenType);
-        _logger.LogInformation("Expires in: {ExpiresIn} seconds", tokenResponse.ExpiresIn);
-        
         return tokenResponse;
     }
 
     private async Task<TokenResponse> ExchangeFacebookCodeForToken(string code)
     {
-        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var configuration = _configuration;
         var appId = configuration["OAuth:Facebook:AppId"];
         var appSecret = configuration["OAuth:Facebook:AppSecret"];
         var redirectUri = configuration["OAuth:Facebook:RedirectUri"];
@@ -455,7 +449,7 @@ public class OAuthController : ControllerBase
             throw new InvalidOperationException("Facebook OAuth configuration is missing");
         }
 
-        using var httpClient = new HttpClient();
+        var httpClient = _httpClientFactory.CreateClient();
         var tokenRequest = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("client_id", appId),
@@ -470,7 +464,8 @@ public class OAuthController : ControllerBase
         
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"Facebook token exchange failed: {content}");
+            _logger.LogError("Facebook token exchange failed with status {StatusCode}", response.StatusCode);
+            throw new InvalidOperationException("Facebook token exchange failed");
         }
 
         return JsonSerializer.Deserialize<TokenResponse>(content) ?? throw new InvalidOperationException("Invalid token response");
@@ -478,7 +473,7 @@ public class OAuthController : ControllerBase
 
     private async Task<TokenResponse> ExchangeMicrosoftCodeForToken(string code)
     {
-        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var configuration = _configuration;
         var clientId = configuration["OAuth:Microsoft:ClientId"];
         var clientSecret = configuration["OAuth:Microsoft:ClientSecret"];
         var redirectUri = configuration["OAuth:Microsoft:RedirectUri"];
@@ -488,7 +483,7 @@ public class OAuthController : ControllerBase
             throw new InvalidOperationException("Microsoft OAuth configuration is missing");
         }
 
-        using var httpClient = new HttpClient();
+        var httpClient = _httpClientFactory.CreateClient();
         var tokenRequest = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("client_id", clientId),
@@ -503,7 +498,8 @@ public class OAuthController : ControllerBase
         
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"Microsoft token exchange failed: {content}");
+            _logger.LogError("Microsoft token exchange failed with status {StatusCode}", response.StatusCode);
+            throw new InvalidOperationException("Microsoft token exchange failed");
         }
 
         return JsonSerializer.Deserialize<TokenResponse>(content) ?? throw new InvalidOperationException("Invalid token response");
@@ -513,14 +509,14 @@ public class OAuthController : ControllerBase
     {
         try
         {
-            using var httpClient = new HttpClient();
+            var httpClient = _httpClientFactory.CreateClient();
             
             switch (provider.ToLower())
             {
                 case "google":
                     if (!string.IsNullOrEmpty(refreshToken))
                     {
-                        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+                        var configuration = _configuration;
                         var clientId = configuration["OAuth:Google:ClientId"];
                         var clientSecret = configuration["OAuth:Google:ClientSecret"];
                         
@@ -538,7 +534,7 @@ public class OAuthController : ControllerBase
                 case "facebook":
                     if (!string.IsNullOrEmpty(accessToken))
                     {
-                        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+                        var configuration = _configuration;
                         var appId = configuration["OAuth:Facebook:AppId"];
                         var appSecret = configuration["OAuth:Facebook:AppSecret"];
                         

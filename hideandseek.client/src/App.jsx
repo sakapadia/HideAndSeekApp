@@ -9,6 +9,33 @@ import './components/OAuthLogin.css';
 import { UserDisplay } from './components/UIComponents';
 import { CATEGORY_FIELDS, CATEGORY_HIERARCHY } from './components/Screens';
 
+// ===== SECURITY HELPERS =====
+const escapeHtml = (str) => {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+const sanitizeId = (id) => {
+  if (!id) return '';
+  return String(id).replace(/[^a-zA-Z0-9_-]/g, '');
+};
+
+const sanitizeUrl = (url) => {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return url;
+    return '';
+  } catch {
+    return '';
+  }
+};
+
 // ===== CONFIGURATION =====
 // Google Maps API key is fetched at runtime from /api/config/google-maps-api-key
 // Configure the key in Azure App Service settings or server environment
@@ -158,7 +185,7 @@ const getStatusBadgeHtml = (status) => {
   };
   const s = status || 'Open';
   const style = statusStyles[s] || statusStyles.Open;
-  return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;${style}">${s}</span>`;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;${style}">${escapeHtml(s)}</span>`;
 };
 
 // ===== SHARED INFO WINDOW BUILDER =====
@@ -168,46 +195,61 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
   const isAuthor = currentUsername && submittedBy === currentUsername;
   const mediaFiles = report.mediaFiles || report.MediaFiles || [];
 
+  const safeId = sanitizeId(reportId);
+
   // Status change buttons for report author
   let statusButtons = '';
   if (isAuthor) {
     if (status === 'Open' || status === 'Acknowledged' || status === 'InProgress') {
-      statusButtons += `<button onclick="window.updateReportStatus('${reportId}','Resolved')" style="background:#2e7d32;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">Mark Resolved</button>`;
+      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Resolved')" style="background:#2e7d32;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">Mark Resolved</button>`;
     }
     if (status === 'Resolved' || status === 'Closed') {
-      statusButtons += `<button onclick="window.updateReportStatus('${reportId}','Open')" style="background:#1565c0;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Reopen</button>`;
+      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Open')" style="background:#1565c0;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Reopen</button>`;
     }
   }
 
-  // Media gallery
+  // Media gallery — sanitize URLs to prevent javascript: injection
   let mediaHtml = '';
   if (mediaFiles.length > 0) {
-    mediaHtml = `<div style="display:flex;gap:4px;overflow-x:auto;margin:8px 0;">${mediaFiles.map(url => `<img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.open('${url}')" />`).join('')}</div>`;
+    mediaHtml = `<div style="display:flex;gap:4px;overflow-x:auto;margin:8px 0;">${mediaFiles.map(url => {
+      const safeUrl = sanitizeUrl(url);
+      if (!safeUrl) return '';
+      return `<img src="${escapeHtml(safeUrl)}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.open('${escapeHtml(safeUrl)}')" />`;
+    }).join('')}</div>`;
   }
+
+  const noiseType = escapeHtml(report.noiseType || report.NoiseType);
+  const noiseLevel = escapeHtml(report.noiseLevel || report.NoiseLevel);
+  const reportDate = escapeHtml(new Date(report.reportDate || report.ReportDate).toLocaleDateString());
+  const safeAddress = escapeHtml(addressDisplay);
+  const safeDuration = escapeHtml(estimatedDurationText);
+  const safeBlastRadius = escapeHtml(report.blastRadius || report.BlastRadius);
+  const safeTimeOption = escapeHtml(report.timeOption || report.TimeOption);
+  const mergedCount = parseInt(report.mergedReportCount) || 0;
 
   return `
     <div style="padding: 10px; max-width: 300px;">
-      <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${report.noiseType || report.NoiseType} ${getStatusBadgeHtml(status)}</h3>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${report.noiseLevel || report.NoiseLevel}/10</p>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${new Date(report.reportDate || report.ReportDate).toLocaleDateString()}</p>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${addressDisplay}</p>
-      ${(report.blastRadius || report.BlastRadius) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${report.blastRadius || report.BlastRadius}</p>` : ''}
-      ${(report.timeOption || report.TimeOption) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${report.timeOption || report.TimeOption}</p>` : ''}
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${estimatedDurationText}</p>
+      <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${noiseType} ${getStatusBadgeHtml(status)}</h3>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${noiseLevel}/10</p>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${reportDate}</p>
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${safeAddress}</p>
+      ${safeBlastRadius ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${safeBlastRadius}</p>` : ''}
+      ${safeTimeOption ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${safeTimeOption}</p>` : ''}
+      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${safeDuration}</p>
       ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
-      ${(report.mergedReportCount && report.mergedReportCount > 0) ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${report.mergedReportCount} related reports merged</strong></p>` : ''}
+      ${mergedCount > 0 ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${mergedCount} related reports merged</strong></p>` : ''}
       ${mediaHtml}
       ${statusButtons ? `<div style="margin-top:6px;">${statusButtons}</div>` : ''}
 
       <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${commentCount})</h4>
-        <div id="comments-${reportId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${parseInt(commentCount) || 0})</h4>
+        <div id="comments-${safeId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
           <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
         </div>
         <div style="display: flex; gap: 5px; margin-top: 10px;">
-          <input type="text" id="comment-input-${reportId}" placeholder="Add a comment..."
+          <input type="text" id="comment-input-${safeId}" placeholder="Add a comment..."
                  style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
-          <button onclick="window.addComment('${reportId}')"
+          <button onclick="window.addComment('${safeId}')"
                   style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
             Add
           </button>
@@ -216,8 +258,8 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
 
       <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
         <button
-          id="upvote-btn-${reportId}"
-          onclick="window.upvoteReport('${reportId}')"
+          id="upvote-btn-${safeId}"
+          onclick="window.upvoteReport('${safeId}')"
           style="
             background: ${hasUpvoted ? '#ccc' : '#667eea'};
             color: white;
@@ -233,7 +275,7 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
           "
           ${hasUpvoted ? 'disabled' : ''}
         >
-          👍 ${upvoteCount}
+          👍 ${parseInt(upvoteCount) || 0}
         </button>
       </div>
     </div>
@@ -411,6 +453,10 @@ function App() {
   const updateIntervalRef = React.useRef(null);
   const debounceTimeoutRef = React.useRef(null);
   const userLocationMarkerRef = React.useRef(null);
+  const jwtTokenRef = React.useRef(userInfo.jwtToken);
+
+  // Keep JWT ref in sync with state
+  React.useEffect(() => { jwtTokenRef.current = userInfo.jwtToken; }, [userInfo.jwtToken]);
 
   // ===== UTILITY FUNCTIONS =====
 
@@ -566,7 +612,10 @@ function App() {
   // Function to load comments for a report
   async function loadComments(reportId) {
     try {
-      const response = await fetch(`/api/noisereports/${reportId}/comments`);
+      const token = localStorage.getItem('hideandseek_token') || userInfo.jwtToken;
+      const response = await fetch(`/api/noisereports/${reportId}/comments`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (!response.ok) {
         throw new Error('Failed to load comments');
       }
@@ -588,10 +637,10 @@ function App() {
           const commentsHtml = recentComments.map(comment => `
             <div style="margin-bottom: 8px; padding: 6px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #4CAF50;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <strong style="font-size: 11px; color: #333;">${comment.username}</strong>
-                <span style="font-size: 10px; color: #666;">${new Date(comment.createdAt).toLocaleString()}</span>
+                <strong style="font-size: 11px; color: #333;">${escapeHtml(comment.username)}</strong>
+                <span style="font-size: 10px; color: #666;">${escapeHtml(new Date(comment.createdAt).toLocaleString())}</span>
               </div>
-              <p style="margin: 0; font-size: 12px; color: #555; line-height: 1.4;">${comment.text}</p>
+              <p style="margin: 0; font-size: 12px; color: #555; line-height: 1.4;">${escapeHtml(comment.text)}</p>
               ${comment.isFromMerge ? '<span style="font-size: 10px; color: #4CAF50; font-style: italic;">(from merged report)</span>' : ''}
             </div>
           `).join('');
@@ -612,18 +661,19 @@ function App() {
   async function addComment(reportId) {
     const input = document.getElementById(`comment-input-${reportId}`);
     const commentText = input?.value?.trim();
-    
+
     if (!commentText) {
       alert('Please enter a comment');
       return;
     }
-    
+
     try {
+      const token = localStorage.getItem('hideandseek_token') || userInfo.jwtToken;
       const response = await fetch(`/api/noisereports/${reportId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('hideandseek_token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ text: commentText })
       });
@@ -673,8 +723,9 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update status');
+        let message = 'Failed to update status';
+        try { const errorData = await response.json(); message = errorData.message || message; } catch { /* non-JSON response */ }
+        throw new Error(message);
       }
 
       // Refresh markers on persistent map
@@ -687,9 +738,15 @@ function App() {
     }
   }
 
-  // Make functions globally available for onclick handlers
-  window.addComment = addComment;
-  window.updateReportStatus = updateReportStatus;
+  // Make functions globally available for onclick handlers (in useEffect to avoid re-assignment on every render)
+  useEffect(() => {
+    window.addComment = addComment;
+    window.updateReportStatus = updateReportStatus;
+    return () => {
+      delete window.addComment;
+      delete window.updateReportStatus;
+    };
+  }, [userInfo.jwtToken, persistentMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===== OAuth Token Handling =====
   useEffect(() => {
@@ -889,7 +946,8 @@ function App() {
       };
 
       // Try to initialize after a short delay to ensure DOM is ready
-      setTimeout(initializePersistentMap, 100);
+      const timerId = setTimeout(initializePersistentMap, 100);
+      return () => clearTimeout(timerId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsLoaded, persistentMap, currentMode]);
@@ -996,13 +1054,14 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userInfo.jwtToken}`
+          'Authorization': `Bearer ${jwtTokenRef.current}`
         }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upvote report');
+        let message = 'Failed to upvote report';
+        try { const errorData = await response.json(); message = errorData.message || message; } catch { /* non-JSON response */ }
+        throw new Error(message);
       }
 
       const upvoteData = await response.json();
@@ -1015,7 +1074,7 @@ function App() {
       updateInfoWindowContent(reportId, upvoteData.upvotes, true);
     } catch (error) {
       console.error('Error upvoting report:', error);
-      setError(`Failed to upvote report: ${error.message}`);
+      setError('Failed to upvote report.');
     }
   };
 
@@ -1241,10 +1300,15 @@ function App() {
           const logoutUrls = await logoutUrlsResponse.json();
           
           // Redirect to provider-specific logout based on current provider
+          const allowedLogoutHosts = ['accounts.google.com', 'www.facebook.com', 'login.microsoftonline.com'];
           if (userInfo.provider && logoutUrls[userInfo.provider]) {
             const logoutUrl = logoutUrls[userInfo.provider];
-            // Open logout URL in a new window/tab
-            window.open(logoutUrl, '_blank', 'width=400,height=600');
+            try {
+              const parsed = new URL(logoutUrl);
+              if (parsed.protocol === 'https:' && allowedLogoutHosts.includes(parsed.hostname)) {
+                window.open(logoutUrl, '_blank', 'width=400,height=600,noopener,noreferrer');
+              }
+            } catch { /* invalid URL, skip */ }
           }
         }
       } catch (error) {
@@ -1522,6 +1586,7 @@ function App() {
           />
         ) : (
           <ReportingFlow
+            key="mainMenu"
             userInfo={userInfo}
             startAtMainMenu={true}
             onAppLogout={handleLogout}
@@ -1668,6 +1733,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [cachedReports, setCachedReports] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
   const [expandedFilterCategories, setExpandedFilterCategories] = useState({});
+  const mapUserLocationMarkerRef = React.useRef(null);
 
   // Build the full category tree from CATEGORY_FIELDS (always shows all 10 main + 30 sub)
   // Returns: { majorCat: { subCat: [noiseType1, noiseType2, ...], ... }, ... }
@@ -2154,17 +2220,19 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   // Upvote functions
   const handleUpvote = async (reportId) => {
     try {
+      const token = localStorage.getItem('hideandseek_token') || userInfo.jwtToken;
       const response = await fetch(`/api/noisereports/${reportId}/upvote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userInfo.jwtToken}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upvote report');
+        let message = 'Failed to upvote report';
+        try { const errorData = await response.json(); message = errorData.message || message; } catch { /* non-JSON response */ }
+        throw new Error(message);
       }
 
       const upvoteData = await response.json();
@@ -2177,7 +2245,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       updateInfoWindowContent(reportId, upvoteData.upvotes, true);
     } catch (error) {
       console.error('Error upvoting report:', error);
-      setError(`Failed to upvote report: ${error.message}`);
+      setError('Failed to upvote report.');
     }
   };
 
@@ -2381,13 +2449,20 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         setUserLocation({ lat: latitude, lng: longitude });
         map.setCenter({ lat: latitude, lng: longitude });
         map.setZoom(14);
+
+        // Clean up previous user location marker
+        if (mapUserLocationMarkerRef.current) {
+          mapUserLocationMarkerRef.current.setMap(null);
+        }
+
         const userMarker = new google.maps.marker.AdvancedMarkerElement({
           position: { lat: latitude, lng: longitude },
           map,
           title: 'Your Location',
           content: document.createElement('div')
         });
-        
+        mapUserLocationMarkerRef.current = userMarker;
+
         // Set the marker content with custom icon
         const markerContent = userMarker.content;
         markerContent.innerHTML = `

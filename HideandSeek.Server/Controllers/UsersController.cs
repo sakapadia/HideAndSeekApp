@@ -1,16 +1,20 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
+using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace HideandSeek.Server.Controllers;
 
 /// <summary>
 /// API controller for managing user accounts and profiles.
 /// Provides RESTful endpoints for profile management and user data.
-/// 
+///
 /// Base Route: /api/users
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
@@ -41,6 +45,12 @@ public class UsersController : ControllerBase
     {
         try
         {
+            var authenticatedUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (authenticatedUserId != userId)
+            {
+                return Forbid();
+            }
+
             var user = await _userService.GetUserByIdAsync(userId);
             if (user == null)
             {
@@ -81,6 +91,12 @@ public class UsersController : ControllerBase
     {
         try
         {
+            var authenticatedUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (authenticatedUserId != userId)
+            {
+                return Forbid();
+            }
+
             var reports = await _userService.GetUserReportsAsync(userId);
             return Ok(reports);
         }
@@ -105,6 +121,12 @@ public class UsersController : ControllerBase
     {
         try
         {
+            var authenticatedUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (authenticatedUserId != userId)
+            {
+                return Forbid();
+            }
+
             var success = await _userService.DeleteUserReportAsync(userId, reportId);
             if (!success)
             {
@@ -135,30 +157,49 @@ public class UsersController : ControllerBase
     {
         try
         {
+            var authenticatedUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (authenticatedUserId != userId)
+            {
+                return Forbid();
+            }
+
             var user = await _userService.GetUserByIdAsync(userId);
             if (user == null)
             {
                 return NotFound("User not found");
             }
 
-            // Update allowed fields
+            // Validate and update allowed fields
             if (!string.IsNullOrEmpty(request.DisplayName))
             {
+                if (request.DisplayName.Length > 100)
+                    return BadRequest("Display name must be 100 characters or fewer.");
                 user.DisplayName = request.DisplayName;
             }
 
             if (!string.IsNullOrEmpty(request.ProfilePictureUrl))
             {
+                if (!Uri.TryCreate(request.ProfilePictureUrl, UriKind.Absolute, out var picUri) ||
+                    (picUri.Scheme != "https" && picUri.Scheme != "http"))
+                    return BadRequest("Profile picture URL must be a valid HTTP(S) URL.");
+                if (request.ProfilePictureUrl.Length > 2000)
+                    return BadRequest("Profile picture URL is too long.");
                 user.ProfilePictureUrl = request.ProfilePictureUrl;
             }
 
             if (!string.IsNullOrEmpty(request.Timezone))
             {
+                if (request.Timezone.Length > 100)
+                    return BadRequest("Timezone value is too long.");
                 user.Timezone = request.Timezone;
             }
 
             if (!string.IsNullOrEmpty(request.CustomUsername))
             {
+                if (request.CustomUsername.Length < 3 || request.CustomUsername.Length > 30)
+                    return BadRequest("Username must be between 3 and 30 characters.");
+                if (!Regex.IsMatch(request.CustomUsername, @"^[a-zA-Z0-9_-]+$"))
+                    return BadRequest("Username can only contain letters, numbers, underscores, and hyphens.");
                 user.CustomUsername = request.CustomUsername;
             }
 

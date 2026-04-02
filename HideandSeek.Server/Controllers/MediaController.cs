@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Services;
+using System.Security.Claims;
 
 namespace HideandSeek.Server.Controllers;
 
@@ -9,6 +10,7 @@ namespace HideandSeek.Server.Controllers;
 public class MediaController : ControllerBase
 {
     private readonly IBlobStorageService _blobStorageService;
+    private readonly IUserService _userService;
     private readonly ILogger<MediaController> _logger;
 
     private static readonly HashSet<string> AllowedContentTypes = new()
@@ -18,9 +20,10 @@ public class MediaController : ControllerBase
 
     private const long MaxFileSize = 10 * 1024 * 1024; // 10 MB
 
-    public MediaController(IBlobStorageService blobStorageService, ILogger<MediaController> logger)
+    public MediaController(IBlobStorageService blobStorageService, IUserService userService, ILogger<MediaController> logger)
     {
         _blobStorageService = blobStorageService;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -87,6 +90,20 @@ public class MediaController : ControllerBase
         try
         {
             var url = Uri.UnescapeDataString(encodedUrl);
+
+            // Verify the authenticated user owns a report containing this media URL
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var blobPath = new Uri(url).AbsolutePath;
+            var userReports = await _userService.GetUserReportsAsync(userId);
+            var ownsMedia = userReports.Any(r =>
+                !string.IsNullOrEmpty(r.MediaFiles) && r.MediaFiles.Contains(blobPath));
+
+            if (!ownsMedia)
+                return Forbid();
+
             await _blobStorageService.DeleteMediaAsync(url);
             return Ok(new { message = "File deleted successfully" });
         }

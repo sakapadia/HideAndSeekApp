@@ -18,7 +18,6 @@ public interface IUserService
     Task<bool> DeleteUserReportAsync(string username, string reportRowKey);
     Task<int> AwardPointsAsync(string username, int points);
     Task<bool> DeleteUserAsync(string username);
-    Task<List<User>> GetAllUsersAsync();
     Task<User?> GetUserByIdAsync(string userId);
     Task<User?> GetUserByUsernameAsync(string username);
     Task<User> UpdateUserLastLoginAsync(string userId);
@@ -112,8 +111,16 @@ public class UserService : IUserService
     {
         try
         {
-            await _userTableClient.UpdateEntityAsync(user, ETag.All, TableUpdateMode.Replace);
+            // Use the entity's actual ETag for optimistic concurrency control
+            // This prevents silent overwrites when concurrent updates occur
+            var etag = user.ETag == default ? ETag.All : user.ETag;
+            await _userTableClient.UpdateEntityAsync(user, etag, TableUpdateMode.Replace);
             return user;
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 412)
+        {
+            _logger.LogWarning("Concurrency conflict updating user: {RowKey}", user.RowKey);
+            throw;
         }
         catch (Exception ex)
         {
@@ -257,11 +264,16 @@ public class UserService : IUserService
 
             return true;
         }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            _logger.LogWarning("Report not found for deletion: {ReportRowKey}", reportRowKey);
+            return false;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting report for user: {Username}, Report: {ReportRowKey}", 
+            _logger.LogError(ex, "Error deleting report for user: {Username}, Report: {ReportRowKey}",
                 username, reportRowKey);
-            return false;
+            throw;
         }
     }
 
@@ -270,24 +282,33 @@ public class UserService : IUserService
     /// </summary>
     public async Task<int> AwardPointsAsync(string username, int points)
     {
-        try
+        const int maxRetries = 3;
+        for (int attempt = 0; attempt < maxRetries; attempt++)
         {
-            var user = await GetUserByUsernameAsync(username);
-            if (user == null)
+            try
             {
-                throw new InvalidOperationException($"User not found with username: {username}");
-            }
+                var user = await GetUserByUsernameAsync(username);
+                if (user == null)
+                {
+                    throw new InvalidOperationException($"User not found with username: {username}");
+                }
 
-            user.Points += points;
-            await UpdateOAuthUserAsync(user);
-            return user.Points;
+                user.Points += points;
+                await UpdateOAuthUserAsync(user);
+                return user.Points;
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 412 && attempt < maxRetries - 1)
+            {
+                _logger.LogWarning("Concurrency conflict awarding points to {Username}, retrying (attempt {Attempt})", username, attempt + 1);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error awarding points to user: {Username}, Points: {Points}",
+                    username, points);
+                throw;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error awarding points to user: {Username}, Points: {Points}", 
-                username, points);
-            throw;
-        }
+        throw new InvalidOperationException($"Failed to award points after {maxRetries} retries due to concurrency conflicts");
     }
 
     /// <summary>
@@ -321,28 +342,4 @@ public class UserService : IUserService
         }
     }
 
-    /// <summary>
-    /// Retrieves all users from Azure Table Storage.
-    /// Used for debugging and administration purposes.
-    /// </summary>
-    public async Task<List<User>> GetAllUsersAsync()
-    {
-        try
-        {
-            var users = new List<User>();
-            var query = _userTableClient.QueryAsync<User>(u => u.PartitionKey == "Users");
-            
-            await foreach (var user in query)
-            {
-                users.Add(user);
-            }
-            
-            return users.OrderBy(u => u.DisplayName).ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving all users");
-            throw;
-        }
-    }
-} 
+}

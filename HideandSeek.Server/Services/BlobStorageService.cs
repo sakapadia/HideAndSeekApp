@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
@@ -16,7 +17,8 @@ public class BlobStorageService : IBlobStorageService
     private readonly BlobContainerClient _containerClient;
     private readonly BlobServiceClient _blobServiceClient;
     private readonly ILogger<BlobStorageService> _logger;
-    private bool _containerEnsured;
+    private volatile bool _containerEnsured;
+    private readonly SemaphoreSlim _containerLock = new(1, 1);
 
     public BlobStorageService(BlobServiceClient blobServiceClient, IConfiguration configuration, ILogger<BlobStorageService> logger)
     {
@@ -29,8 +31,10 @@ public class BlobStorageService : IBlobStorageService
     private async Task EnsureContainerExistsAsync()
     {
         if (_containerEnsured) return;
+        await _containerLock.WaitAsync();
         try
         {
+            if (_containerEnsured) return; // Double-check after acquiring lock
             await _containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
             _containerEnsured = true;
         }
@@ -39,13 +43,20 @@ public class BlobStorageService : IBlobStorageService
             _logger.LogError(ex, "Failed to create/verify blob container {ContainerName}", _containerClient.Name);
             throw;
         }
+        finally
+        {
+            _containerLock.Release();
+        }
     }
 
     public async Task<string> UploadMediaAsync(Stream file, string fileName, string contentType)
     {
         await EnsureContainerExistsAsync();
 
-        var blobName = $"{Guid.NewGuid():N}_{fileName}";
+        // Sanitize filename: keep only alphanumeric, dots, hyphens, underscores
+        var safeName = Regex.Replace(Path.GetFileName(fileName), @"[^a-zA-Z0-9._-]", "_");
+        if (safeName.Length > 100) safeName = safeName[..100];
+        var blobName = $"{Guid.NewGuid():N}_{safeName}";
         var blobClient = _containerClient.GetBlobClient(blobName);
 
         var headers = new BlobHttpHeaders { ContentType = contentType };
@@ -62,14 +73,26 @@ public class BlobStorageService : IBlobStorageService
         try
         {
             var uri = new Uri(blobUrl);
-            var blobName = new BlobUriBuilder(uri).BlobName;
-            var blobClient = _containerClient.GetBlobClient(blobName);
+            var builder = new BlobUriBuilder(uri);
+
+            // Validate the URL points to our storage account and container
+            if (!uri.Host.Equals(_containerClient.Uri.Host, StringComparison.OrdinalIgnoreCase) ||
+                !builder.BlobContainerName.Equals(_containerClient.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Blob URL does not belong to the expected storage container.");
+            }
+
+            var blobClient = _containerClient.GetBlobClient(builder.BlobName);
             return GenerateSasUrl(blobClient);
+        }
+        catch (ArgumentException)
+        {
+            throw; // validation failures should propagate
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating SAS URL for {BlobUrl}", blobUrl);
-            return blobUrl; // fallback to original
+            _logger.LogError(ex, "Error generating SAS URL for blob");
+            throw new InvalidOperationException("Unable to generate secure media URL.", ex);
         }
     }
 
@@ -101,14 +124,22 @@ public class BlobStorageService : IBlobStorageService
         try
         {
             var uri = new Uri(blobUrl);
-            var blobName = new BlobUriBuilder(uri).BlobName;
-            var blobClient = _containerClient.GetBlobClient(blobName);
+            var builder = new BlobUriBuilder(uri);
+
+            // Validate the URL points to our storage account and container
+            if (!uri.Host.Equals(_containerClient.Uri.Host, StringComparison.OrdinalIgnoreCase) ||
+                !builder.BlobContainerName.Equals(_containerClient.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Blob URL does not belong to the expected storage container.");
+            }
+
+            var blobClient = _containerClient.GetBlobClient(builder.BlobName);
             await blobClient.DeleteIfExistsAsync();
-            _logger.LogInformation("Deleted blob {BlobName}", blobName);
+            _logger.LogInformation("Deleted blob {BlobName}", builder.BlobName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting blob {BlobUrl}", blobUrl);
+            _logger.LogError(ex, "Error deleting blob");
             throw;
         }
     }

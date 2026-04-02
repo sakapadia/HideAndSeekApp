@@ -478,7 +478,7 @@ export const UserProfile = ({
                       {report.mediaFiles && report.mediaFiles.length > 0 && (
                         <div className="report-media-thumbs">
                           {report.mediaFiles.map((url, i) => (
-                            <img key={i} src={url} alt={`Media ${i + 1}`} className="report-media-thumb" onClick={() => window.open(url)} />
+                            <img key={url} src={url} alt={`Media ${i + 1}`} className="report-media-thumb" onClick={() => window.open(url)} />
                           ))}
                         </div>
                       )}

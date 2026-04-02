@@ -1,3 +1,4 @@
+using Azure;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
 
@@ -9,10 +10,12 @@ namespace HideandSeek.Server.Services;
 public class ReportMergingService
 {
     private readonly ITableStorageService _tableStorageService;
+    private readonly ILogger<ReportMergingService> _logger;
 
-    public ReportMergingService(ITableStorageService tableStorageService)
+    public ReportMergingService(ITableStorageService tableStorageService, ILogger<ReportMergingService> logger)
     {
         _tableStorageService = tableStorageService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -84,29 +87,39 @@ public class ReportMergingService
     /// <returns>True if the comment was added successfully</returns>
     public async Task<bool> AddCommentToReportAsync(string reportId, string commentText, string username, string userId)
     {
-        try
+        const int maxRetries = 3;
+        for (int attempt = 0; attempt < maxRetries; attempt++)
         {
-            var report = await _tableStorageService.GetNoiseReportByIdAsync(reportId);
-            if (report == null)
-                return false;
-
-            report.AddComment(commentText, username, userId);
-
-            // Keep only the 5 most recent comments
-            var comments = report.GetCommentsList();
-            if (comments.Count > 5)
+            try
             {
-                comments = comments.OrderByDescending(c => c.CreatedAt).Take(5).OrderBy(c => c.CreatedAt).ToList();
-                report.SetCommentsList(comments);
-            }
+                var report = await _tableStorageService.GetNoiseReportByIdAsync(reportId);
+                if (report == null)
+                    return false;
 
-            await _tableStorageService.UpdateNoiseReportAsync(report);
-            return true;
+                report.AddComment(commentText, username, userId);
+
+                // Keep only the 5 most recent comments
+                var comments = report.GetCommentsList();
+                if (comments.Count > 5)
+                {
+                    comments = comments.OrderByDescending(c => c.CreatedAt).Take(5).OrderBy(c => c.CreatedAt).ToList();
+                    report.SetCommentsList(comments);
+                }
+
+                await _tableStorageService.UpdateNoiseReportAsync(report);
+                return true;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 412 && attempt < maxRetries - 1)
+            {
+                _logger.LogWarning("ETag conflict adding comment to report {ReportId}, retrying (attempt {Attempt})", reportId, attempt + 1);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding comment to report {ReportId}", reportId);
+                return false;
+            }
         }
-        catch
-        {
-            return false;
-        }
+        return false;
     }
 
     /// <summary>
@@ -121,8 +134,9 @@ public class ReportMergingService
             var report = await _tableStorageService.GetNoiseReportByIdAsync(reportId);
             return report?.GetCommentsList() ?? new List<Comment>();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error getting comments for report {ReportId}", reportId);
             return new List<Comment>();
         }
     }
@@ -138,8 +152,9 @@ public class ReportMergingService
         {
             return await _tableStorageService.GetNoiseReportByIdAsync(reportId);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error getting report with comments {ReportId}", reportId);
             return null;
         }
     }

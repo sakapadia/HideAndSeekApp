@@ -283,35 +283,23 @@ public class TableStorageService : ITableStorageService
     /// <returns>List of ZIP codes that have noise reports in the specified bounds</returns>
     public async Task<List<string>> GetZipCodesFromReportsAsync(MapBounds bounds)
     {
-        var zipCodes = new HashSet<string>(); // Use HashSet to avoid duplicates
-        var totalReports = 0;
-        var reportsInBounds = 0;
+        var zipCodes = new HashSet<string>();
+        const int maxRowsToScan = 5000;
+        var scanned = 0;
 
         try
         {
-            // Query all noise reports in the table (since we need to find ZIP codes)
-            // In a production environment, you might want to maintain a separate ZIP code index
             var query = _tableClient.QueryAsync<NoiseReport>();
-            
+
             await foreach (var report in query)
             {
-                totalReports++;
-                
-                // Log some sample reports to see what's in the database
-                if (totalReports <= 5)
-                {
-                    _logger.LogInformation("Sample report {ReportNum}: Lat={Lat}, Lon={Lon}, ZIP={Zip}, Address={Address}", 
-                        totalReports, report.Latitude, report.Longitude, report.PartitionKey, report.StreetAddress);
-                }
-                
-                // Check if the report is within the specified bounds
-                if (report.Latitude >= bounds.MinLatitude && 
+                if (++scanned > maxRowsToScan) break;
+
+                if (report.Latitude >= bounds.MinLatitude &&
                     report.Latitude <= bounds.MaxLatitude &&
-                    report.Longitude >= bounds.MinLongitude && 
+                    report.Longitude >= bounds.MinLongitude &&
                     report.Longitude <= bounds.MaxLongitude)
                 {
-                    reportsInBounds++;
-                    // Add the ZIP code from this report
                     if (!string.IsNullOrEmpty(report.PartitionKey))
                     {
                         zipCodes.Add(report.PartitionKey);
@@ -319,14 +307,11 @@ public class TableStorageService : ITableStorageService
                 }
             }
 
-            _logger.LogInformation("Database contains {TotalReports} total reports, {ReportsInBounds} reports in bounds, {ZipCodeCount} unique ZIP codes in bounds: {Bounds}", 
-                totalReports, reportsInBounds, zipCodes.Count, bounds);
-            
             return zipCodes.ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving ZIP codes from reports for bounds: {Bounds}", bounds);
+            _logger.LogError(ex, "Error retrieving ZIP codes from reports");
             throw;
         }
     }

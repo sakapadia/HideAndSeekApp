@@ -148,15 +148,27 @@ public class NoiseReportsController : ControllerBase
             }
 
             // Validate required geographic coordinates
-            if (report.Latitude == 0 || report.Longitude == 0)
+            if (report.Latitude < -90 || report.Latitude > 90 ||
+                report.Longitude < -180 || report.Longitude > 180)
             {
-                return BadRequest("Latitude and longitude are required");
+                return BadRequest("Latitude must be between -90 and 90, longitude between -180 and 180");
             }
 
             // Validate required description
             if (string.IsNullOrEmpty(report.Description))
             {
                 return BadRequest("Description is required");
+            }
+
+            if (report.Description.Length > 2000)
+            {
+                return BadRequest("Description must be 2000 characters or less");
+            }
+
+            // Validate noise level range
+            if (report.NoiseLevel < 1 || report.NoiseLevel > 10)
+            {
+                return BadRequest("Noise level must be between 1 and 10");
             }
 
             // Get username from JWT token
@@ -243,11 +255,21 @@ public class NoiseReportsController : ControllerBase
                 return BadRequest("Comprehensive noise report data is required");
             }
 
+            // Validate coordinate ranges if provided
+            if (reportRequest.Latitude != 0 && (reportRequest.Latitude < -90 || reportRequest.Latitude > 90))
+            {
+                return BadRequest("Latitude must be between -90 and 90");
+            }
+            if (reportRequest.Longitude != 0 && (reportRequest.Longitude < -180 || reportRequest.Longitude > 180))
+            {
+                return BadRequest("Longitude must be between -180 and 180");
+            }
+
             // Validate required geographic coordinates
             // Allow 0,0 coordinates if we have an address to geocode
-            if ((reportRequest.Latitude == 0 || reportRequest.Longitude == 0) && 
-                string.IsNullOrEmpty(reportRequest.StreetAddress) && 
-                string.IsNullOrEmpty(reportRequest.City) && 
+            if ((reportRequest.Latitude == 0 || reportRequest.Longitude == 0) &&
+                string.IsNullOrEmpty(reportRequest.StreetAddress) &&
+                string.IsNullOrEmpty(reportRequest.City) &&
                 string.IsNullOrEmpty(reportRequest.ZipCode))
             {
                 return BadRequest("Either coordinates or address information is required");
@@ -296,6 +318,17 @@ public class NoiseReportsController : ControllerBase
             if (string.IsNullOrEmpty(reportRequest.Description))
             {
                 return BadRequest("Description is required");
+            }
+
+            if (reportRequest.Description.Length > 2000)
+            {
+                return BadRequest("Description must be 2000 characters or less");
+            }
+
+            // Validate noise level range
+            if (reportRequest.NoiseLevel < 1 || reportRequest.NoiseLevel > 10)
+            {
+                return BadRequest("Noise level must be between 1 and 10");
             }
 
             // Get username from JWT token
@@ -737,16 +770,26 @@ public class NoiseReportsController : ControllerBase
                 reportIds = reportIds.Take(200).ToList();
             }
 
+            // Limit concurrency to avoid overwhelming storage
+            var semaphore = new SemaphoreSlim(10);
             var tasks = reportIds.Select(async reportId =>
             {
-                var report = await _tableStorageService.GetNoiseReportAsync(reportId);
-                if (report == null) return null;
-                return new
+                await semaphore.WaitAsync();
+                try
                 {
-                    reportId,
-                    upvotes = report.Upvotes,
-                    hasUserUpvoted = report.HasUserUpvoted(username)
-                };
+                    var report = await _tableStorageService.GetNoiseReportAsync(reportId);
+                    if (report == null) return null;
+                    return new
+                    {
+                        reportId,
+                        upvotes = report.Upvotes,
+                        hasUserUpvoted = report.HasUserUpvoted(username)
+                    };
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
             });
 
             var results = (await Task.WhenAll(tasks)).Where(r => r != null).ToList();
@@ -789,6 +832,11 @@ public class NoiseReportsController : ControllerBase
             if (string.IsNullOrEmpty(commentRequest?.Text))
             {
                 return BadRequest(new { message = "Comment text is required" });
+            }
+
+            if (commentRequest.Text.Length > 500)
+            {
+                return BadRequest(new { message = "Comment must be 500 characters or less" });
             }
 
             // Add the comment to the report

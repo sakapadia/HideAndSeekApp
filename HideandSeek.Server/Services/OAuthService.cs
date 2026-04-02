@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +17,7 @@ public interface IOAuthService
     string GetGoogleAuthUrl();
     string GetFacebookAuthUrl();
     string GetMicrosoftAuthUrl();
+    bool ValidateOAuthState(string state);
     Task<OAuthUserInfo> ValidateGoogleTokenAsync(string accessToken);
     Task<OAuthUserInfo> ValidateFacebookTokenAsync(string accessToken);
     Task<OAuthUserInfo> ValidateMicrosoftTokenAsync(string accessToken);
@@ -26,11 +29,67 @@ public class OAuthService : IOAuthService
     private readonly HttpClient _httpClient;
     private readonly ILogger<OAuthService> _logger;
 
+    private readonly byte[] _stateKey;
+    private const int StateMaxAgeSeconds = 600; // 10 minutes
+
     public OAuthService(IConfiguration configuration, HttpClient httpClient, ILogger<OAuthService> logger)
     {
         _configuration = configuration;
         _httpClient = httpClient;
         _logger = logger;
+
+        // Derive state signing key from JWT secret (always available)
+        var jwtSecret = _configuration["JwtSettings:SecretKey"] ?? "default-dev-key";
+        _stateKey = HMACSHA256.HashData(Encoding.UTF8.GetBytes(jwtSecret), Encoding.UTF8.GetBytes("oauth-state-key"));
+    }
+
+    /// <summary>
+    /// Generates a signed, timestamped OAuth state parameter to prevent CSRF.
+    /// Format: base64(timestamp.nonce.hmac)
+    /// </summary>
+    private string GenerateOAuthState()
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+        var payload = $"{timestamp}.{nonce}";
+        using var hmac = new HMACSHA256(_stateKey);
+        var signature = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{payload}.{signature}"));
+    }
+
+    /// <summary>
+    /// Validates an OAuth state parameter. Returns true if the signature is valid and not expired.
+    /// </summary>
+    public bool ValidateOAuthState(string state)
+    {
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(state));
+            var parts = decoded.Split('.');
+            if (parts.Length != 3) return false;
+
+            var timestamp = parts[0];
+            var nonce = parts[1];
+            var signature = parts[2];
+
+            // Verify signature
+            var payload = $"{timestamp}.{nonce}";
+            using var hmac = new HMACSHA256(_stateKey);
+            var expectedSignature = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(signature),
+                    Encoding.UTF8.GetBytes(expectedSignature)))
+                return false;
+
+            // Verify not expired
+            if (!long.TryParse(timestamp, out var ts)) return false;
+            var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts;
+            return age >= 0 && age <= StateMaxAgeSeconds;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public string GetGoogleAuthUrl()
@@ -44,6 +103,7 @@ public class OAuthService : IOAuthService
         }
 
         var scopeString = "openid email profile https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+        var state = GenerateOAuthState();
 
         var authUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
                $"client_id={clientId}&" +
@@ -51,7 +111,8 @@ public class OAuthService : IOAuthService
                $"response_type=code&" +
                $"scope={Uri.EscapeDataString(scopeString)}&" +
                $"access_type=offline&" +
-               $"prompt=select_account consent";
+               $"prompt=select_account consent&" +
+               $"state={Uri.EscapeDataString(state)}";
 
         return authUrl;
     }
@@ -60,74 +121,65 @@ public class OAuthService : IOAuthService
     {
         var appId = _configuration["OAuth:Facebook:AppId"];
         var redirectUri = _configuration["OAuth:Facebook:RedirectUri"];
-        
+
         if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(redirectUri))
         {
             throw new InvalidOperationException("Facebook OAuth configuration is missing");
         }
-        
+
+        var state = GenerateOAuthState();
+
         return $"https://www.facebook.com/v18.0/dialog/oauth?" +
                $"client_id={appId}&" +
                $"redirect_uri={Uri.EscapeDataString(redirectUri)}&" +
                $"response_type=code&" +
-               $"scope={Uri.EscapeDataString("email public_profile")}";
+               $"scope={Uri.EscapeDataString("email public_profile")}&" +
+               $"state={Uri.EscapeDataString(state)}";
     }
 
     public string GetMicrosoftAuthUrl()
     {
         var clientId = _configuration["OAuth:Microsoft:ClientId"];
         var redirectUri = _configuration["OAuth:Microsoft:RedirectUri"];
-        
+
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(redirectUri))
         {
             throw new InvalidOperationException("Microsoft OAuth configuration is missing");
         }
-        
+
+        var state = GenerateOAuthState();
+
         return $"https://login.microsoftonline.com/common/oauth2/v2.0/authorize?" +
                $"client_id={clientId}&" +
                $"redirect_uri={Uri.EscapeDataString(redirectUri)}&" +
                $"response_type=code&" +
                $"scope={Uri.EscapeDataString("openid email profile")}&" +
-               $"response_mode=query";
+               $"response_mode=query&" +
+               $"state={Uri.EscapeDataString(state)}";
     }
 
     public async Task<OAuthUserInfo> ValidateGoogleTokenAsync(string accessToken)
     {
         try
         {
-            _logger.LogInformation("Validating Google token with length: {TokenLength}", accessToken.Length);
-            _logger.LogInformation("Token starts with: {TokenStart}", accessToken.Substring(0, Math.Min(20, accessToken.Length)));
-            
-            // Use Authorization header with Bearer token (correct approach)
             var request = new HttpRequestMessage(HttpMethod.Get, "https://www.googleapis.com/oauth2/v2/userinfo");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            
-            _logger.LogInformation("Calling Google userinfo API with Authorization header");
-            
+
             var response = await _httpClient.SendAsync(request);
-            
-            _logger.LogInformation("Google userinfo API response status: {StatusCode}", response.StatusCode);
-            
+
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Google userinfo API error: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                throw new InvalidOperationException($"Invalid Google access token: {errorContent}");
+                _logger.LogError("Google userinfo API returned {StatusCode}", response.StatusCode);
+                throw new InvalidOperationException("Invalid Google access token");
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            _logger.LogInformation("Google userinfo API response content: {Content}", content);
-            
             var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(content);
 
             if (userInfo == null)
             {
                 throw new InvalidOperationException("Invalid Google user info response");
             }
-
-            _logger.LogInformation("Successfully parsed Google user info: {Email} - {Name}", userInfo.Email, userInfo.Name);
-            _logger.LogInformation("Google user info details - Id: {Id}, Email: {Email}, Name: {Name}, Picture: {Picture}", 
-                userInfo.Id, userInfo.Email, userInfo.Name, userInfo.Picture);
 
             return new OAuthUserInfo
             {

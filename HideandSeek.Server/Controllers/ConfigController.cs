@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HideandSeek.Server.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class ConfigController : ControllerBase
 {
@@ -13,6 +15,7 @@ public class ConfigController : ControllerBase
         _configuration = configuration;
     }
 
+    [AllowAnonymous]
     [HttpGet("google-maps-api-key")]
     public IActionResult GetGoogleMapsApiKey()
     {

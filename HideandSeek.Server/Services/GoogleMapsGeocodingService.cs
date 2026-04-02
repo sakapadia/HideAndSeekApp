@@ -50,28 +50,25 @@ public class GoogleMapsGeocodingService : IGeocodingService
 
         try
         {
-            _logger.LogInformation("Geocoding address: {Address}", address);
-            
+            _logger.LogDebug("Geocoding address request");
+
             // Build the Google Maps Geocoding API URL
             var encodedAddress = Uri.EscapeDataString(address);
             var url = $"https://maps.googleapis.com/maps/api/geocode/json?address={encodedAddress}&key={_apiKey}";
-            
+
             // Make the API request
             var response = await _httpClient.GetStringAsync(url);
-            _logger.LogInformation("Raw Google Maps response: {Response}", response);
-            
+            _logger.LogDebug("Geocoding API responded");
+
             var result = JsonSerializer.Deserialize<GoogleGeocodingResponse>(response);
-            _logger.LogInformation("Parsed response - Status: '{Status}', Results count: {ResultsCount}", 
-                result?.Status ?? "NULL", result?.Results?.Length ?? 0);
-            
+
             if (result?.Status == "OK" && result.Results?.Length > 0)
             {
                 var location = result.Results[0].Geometry.Location;
                 var coordinates = (location.Lat, location.Lng);
-                
-                _logger.LogInformation("Successfully geocoded '{Address}' to coordinates: {Lat}, {Lng}", 
-                    address, coordinates.Lat, coordinates.Lng);
-                
+
+                _logger.LogDebug("Geocoded successfully");
+
                 return coordinates;
             }
             else
@@ -128,22 +125,21 @@ public class GoogleMapsGeocodingService : IGeocodingService
 
         try
         {
-            _logger.LogInformation("Reverse geocoding coordinates: {Lat}, {Lng}", latitude, longitude);
-            
+            _logger.LogDebug("Reverse geocoding request");
+
             // Build the Google Maps Reverse Geocoding API URL
             var url = $"https://maps.googleapis.com/maps/api/geocode/json?latlng={latitude},{longitude}&key={_apiKey}";
-            
+
             // Make the API request
             var response = await _httpClient.GetStringAsync(url);
             var result = JsonSerializer.Deserialize<GoogleGeocodingResponse>(response);
-            
+
             if (result?.Status == "OK" && result.Results?.Length > 0)
             {
                 var address = result.Results[0].FormattedAddress;
-                
-                _logger.LogInformation("Successfully reverse geocoded coordinates {Lat}, {Lng} to address: {Address}", 
-                    latitude, longitude, address);
-                
+
+                _logger.LogDebug("Reverse geocoded successfully");
+
                 return address;
             }
             else

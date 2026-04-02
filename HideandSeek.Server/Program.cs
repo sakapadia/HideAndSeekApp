@@ -26,14 +26,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add CORS
+// Add CORS - restrict to known frontend origins
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "https://hideandseekapp.azurewebsites.net" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -64,10 +68,13 @@ builder.Services.AddAuthorization();
 // Add HttpClient for OAuth services
 builder.Services.AddHttpClient();
 
+// Register token encryption service
+builder.Services.AddSingleton<ITokenEncryptionService, TokenEncryptionService>();
+
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITableStorageService, TableStorageService>();
-builder.Services.AddScoped<IOAuthService, OAuthService>();
+builder.Services.AddHttpClient<IOAuthService, OAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ReportMergingService>();
 
@@ -76,7 +83,12 @@ builder.Services.AddScoped<ReportMergingService>();
 builder.Services.AddHttpClient<IGeocodingService, GoogleMapsGeocodingService>();
 
 // Register Azure Blob Storage services for media upload
+// Use AzureStorage:ConnectionString, falling back to the shared ConnectionStrings:AzureTableStorage
 var blobConnectionString = builder.Configuration["AzureStorage:ConnectionString"];
+if (string.IsNullOrEmpty(blobConnectionString))
+{
+    blobConnectionString = builder.Configuration.GetConnectionString("AzureTableStorage");
+}
 if (!string.IsNullOrEmpty(blobConnectionString))
 {
     builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
@@ -96,14 +108,15 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
-app.UseAuthentication(); // Add this line
-app.UseAuthorization();
-app.MapControllers();
+app.UseCors("AllowFrontend");
 
-// Serve static files from the React app
+// Serve static files from the React app (before auth so static assets don't require auth)
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
 
 // Fallback to index.html for SPA routing
 app.MapFallbackToFile("/index.html");
