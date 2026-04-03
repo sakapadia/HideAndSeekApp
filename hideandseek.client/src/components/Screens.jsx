@@ -619,7 +619,9 @@ export const WhatScreen = ({
   onCancel,
   searchValue = '',
   noiseLevel = 5,
-  description = ''
+  description = '',
+  categorySpecificData = {},
+  onCategorySpecificDataChange
 }) => {
   // State for hierarchical category browser
   const [expandedMajor, setExpandedMajor] = useState(null);
@@ -823,7 +825,30 @@ export const WhatScreen = ({
           )}
         </div>
       </div>
-      
+
+      {/* Inline Category Details (absorbed from CategoryDetailsScreen) */}
+      {selectedCategory && getFieldConfig(selectedCategory) && (
+        <div className="category-details-inline">
+          <h3 className="section-title">Additional Details</h3>
+          <p className="category-details-hint">
+            Optional fields to help us understand more about this {getCategoryHierarchy(selectedCategory)?.sub || 'report'}
+          </p>
+          <div className="category-details-fields">
+            {getFieldConfig(selectedCategory).fields.map((field) => (
+              <DynamicField
+                key={field.name}
+                field={field}
+                value={categorySpecificData[field.name]}
+                onChange={(value) => onCategorySpecificDataChange({
+                  ...categorySpecificData,
+                  [field.name]: value
+                })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="screen-actions">
         <Button
           id="btnNextWhat"
@@ -1615,101 +1640,6 @@ const DynamicField = ({ field, value, onChange }) => {
   }
 };
 
-/**
- * Category Details Screen - Dynamic fields based on selected category
- */
-export const CategoryDetailsScreen = ({
-  progress = 20,
-  reportData = {},
-  onCategorySpecificDataChange,
-  onNext,
-  onBack,
-  onCancel
-}) => {
-  const selectedCategory = reportData.selectedCategories?.[0];
-  const categorySpecificData = reportData.categorySpecificData || {};
-
-  // Get field configuration for the selected category
-  const fieldConfig = selectedCategory ? getFieldConfig(selectedCategory) : null;
-  const hierarchy = selectedCategory ? getCategoryHierarchy(selectedCategory) : null;
-
-  // If no specific fields for this category, auto-skip to next screen
-  React.useEffect(() => {
-    if (!fieldConfig || fieldConfig.fields.length === 0) {
-      onNext();
-    }
-  }, [fieldConfig, onNext]);
-
-  // If no fields, show nothing (will auto-skip)
-  if (!fieldConfig || fieldConfig.fields.length === 0) {
-    return null;
-  }
-
-  const updateField = (fieldName, value) => {
-    onCategorySpecificDataChange({
-      ...categorySpecificData,
-      [fieldName]: value
-    });
-  };
-
-  // Check if required fields are filled
-  const requiredFieldsFilled = fieldConfig.fields
-    .filter(f => f.required)
-    .every(f => {
-      const val = categorySpecificData[f.name];
-      return val !== undefined && val !== null && val !== '';
-    });
-
-  const canProceed = requiredFieldsFilled;
-
-  return (
-    <div className="screen category-details-screen">
-      <ProgressBar progress={progress} />
-      <Heading text="Additional Details" level={2} />
-      <Text text={`Help us understand more about this ${hierarchy?.sub || 'report'}`} />
-
-      <div className="category-details-fields">
-        {fieldConfig.fields.map((field) => (
-          <DynamicField
-            key={field.name}
-            field={field}
-            value={categorySpecificData[field.name]}
-            onChange={(value) => updateField(field.name, value)}
-          />
-        ))}
-      </div>
-
-      <div className="screen-actions">
-        <Button
-          id="btnNextCategoryDetails"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!canProceed && fieldConfig.fields.some(f => f.required)}
-          className="btn-primary"
-        />
-        <Button
-          id="btnSkipDetails"
-          text="Skip"
-          onClick={onNext}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnBack"
-          text="← Back"
-          onClick={onBack}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
-        />
-      </div>
-    </div>
-  );
-};
-
 // Export the helper functions and configurations for use in other components
 export { CATEGORY_FIELDS, CATEGORY_HIERARCHY, getCategoryHierarchy, getFieldConfig };
 
@@ -1813,17 +1743,16 @@ export const WhereScreen = ({
 /**
  * When Screen - Time selection
  */
-export const WhenScreen = ({ 
+export const WhenScreen = ({
   progress = 50,
   timeOption = 'NOW',
   customDate = '',
-  customSlots = [],
   isRecurring = false,
   onTimeOptionChange,
   onCustomDateChange,
-  onCustomSlotsChange,
   onRecurringChange,
-  onConfigureRecurrence,
+  recurrenceConfig = {},
+  onRecurrenceChange,
   onNext,
   onBack,
   onCancel
@@ -1842,17 +1771,15 @@ export const WhenScreen = ({
     onRecurringChange(isRecurring);
   };
 
-  const handleConfigureRecurrence = () => {
-    onConfigureRecurrence();
-  };
-
-  const canProceed = timeOption && (timeOption === 'NOW' || customDate);
+  const baseValid = timeOption && (timeOption === 'NOW' || customDate);
+  const recurrenceValid = !isRecurring || (recurrenceConfig.frequency && recurrenceConfig.startDate);
+  const canProceed = baseValid && recurrenceValid;
 
   return (
     <div className="screen when-screen">
       <ProgressBar progress={progress} />
       <Heading text="When is it occurring?" level={2} />
-      
+
       <RadioGroup
         id="timeOptions"
         label="Time of Day"
@@ -1860,7 +1787,7 @@ export const WhenScreen = ({
         selectedValue={timeOption}
         onChange={handleTimeOptionChange}
       />
-      
+
       {timeOption !== 'NOW' && (
         <div className="custom-time-section">
           <Input
@@ -1881,32 +1808,20 @@ export const WhenScreen = ({
           checked={isRecurring}
           onChange={handleRecurringChange}
         />
-        
+
+        {/* Inline Recurrence Widget (absorbed from RecurrenceScreen) */}
         {isRecurring && (
-          <div className="recurrence-config">
-            <p className="recurrence-note">
-              You'll be able to configure the recurrence pattern on the next screen.
-            </p>
-            <Button
-              id="btnConfigureRecurrence"
-              text="Configure Recurrence"
-              onClick={handleConfigureRecurrence}
-              className="btn-secondary"
+          <div className="inline-recurrence-section">
+            <RecurrenceWidget
+              id="recurrenceConfig"
+              style="OutlookCalendar"
+              config={recurrenceConfig}
+              onConfigChange={onRecurrenceChange}
             />
           </div>
         )}
-        
-        {/* Test button to manually toggle state */}
-        <div style={{marginTop: '10px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '5px'}}>
-          <p style={{fontSize: '12px', marginBottom: '5px'}}>Test: Manually toggle state</p>
-          <Button
-            text={isRecurring ? "Turn OFF Recurring" : "Turn ON Recurring"}
-            onClick={() => handleRecurringChange(!isRecurring)}
-            className="btn-secondary"
-          />
-        </div>
       </div>
-      
+
       <div className="screen-actions">
         <Button
           id="btnNextWhen"
@@ -1933,75 +1848,19 @@ export const WhenScreen = ({
 };
 
 /**
- * Recurrence Screen - Recurrence configuration
+ * Review Screen - Summary of all information
  */
-export const RecurrenceScreen = ({ 
-  progress = 60,
-  recurrenceConfig = {},
-  onRecurrenceChange,
-  onNext,
+export const ReviewScreen = ({
+  progress = 80,
+  reportData = {},
+  onEdit,
+  onConfirm,
   onBack,
-  onCancel
-}) => {
-  const handleConfigChange = (newConfig) => {
-    onRecurrenceChange(newConfig);
-  };
-
-  // Validate that we have at least a frequency and start date
-  const isValid = recurrenceConfig.frequency && recurrenceConfig.startDate;
-
-  return (
-    <div className="screen recurrence-screen">
-      <ProgressBar progress={progress} />
-      <Heading text="Recurrence Details" level={2} />
-      
-      <RecurrenceWidget
-        id="recurrenceConfig"
-        style="OutlookCalendar"
-        config={recurrenceConfig}
-        onConfigChange={handleConfigChange}
-      />
-      
-      <div className="screen-actions">
-        <Button
-          id="btnNextRecurrence"
-          text="NEXT →"
-          onClick={onNext}
-          disabled={!isValid}
-          className="btn-primary"
-        />
-        <Button
-          id="btnBack"
-          text="← Back"
-          onClick={onBack}
-          className="btn-secondary"
-        />
-        <Button
-          id="btnCancel"
-          text="Cancel"
-          onClick={onCancel}
-          className="btn-secondary"
-        />
-      </div>
-    </div>
-  );
-};
-
-/**
- * Media Screen - Photo/media upload
- */
-export const MediaScreen = ({
-  progress = 70,
-  mediaFiles = [],
   onPickFromDevice,
   onUseCamera,
   onRemoveMedia,
   uploadingFiles = [],
-  mediaError = '',
-  onSkip,
-  onNext,
-  onBack,
-  onCancel
+  mediaError = ''
 }) => {
   const fileInputRef = React.useRef(null);
   const cameraInputRef = React.useRef(null);
@@ -2014,95 +1873,6 @@ export const MediaScreen = ({
       onPickFromDevice(e.dataTransfer.files);
     }
   };
-
-  return (
-    <div className="screen media-screen">
-      <ProgressBar progress={progress} />
-      <Heading text="Add Photos or Videos" level={2} />
-      <Text text="Help others understand the situation better with visual evidence. Max 5 files, 10 MB each." />
-
-      <div
-        className={`media-dropzone${dragOver ? ' drag-over' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <div style={{ fontSize: '2rem' }}>📁</div>
-        <p>Drag & drop files here, or click to browse</p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,video/mp4"
-          style={{ display: 'none' }}
-          onChange={(e) => { if (e.target.files.length) onPickFromDevice(e.target.files); e.target.value = ''; }}
-        />
-      </div>
-
-      <div className="media-options" style={{ marginBottom: '12px' }}>
-        <Button
-          id="btnUseCamera"
-          text="📷 Use Camera"
-          onClick={() => cameraInputRef.current?.click()}
-          className="btn-primary"
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: 'none' }}
-          onChange={(e) => { if (e.target.files.length) onUseCamera(e.target.files); e.target.value = ''; }}
-        />
-      </div>
-
-      {mediaError && <p className="media-error">{mediaError}</p>}
-
-      {(mediaFiles.length > 0 || uploadingFiles.length > 0) && (
-        <div className="media-preview-grid">
-          {mediaFiles.map((file, index) => (
-            <div key={index} className="media-preview-item">
-              {file.type === 'video' ? (
-                <video src={file.url} />
-              ) : (
-                <img src={file.url || file.preview} alt={`Media ${index + 1}`} />
-              )}
-              <button className="remove-btn" onClick={() => onRemoveMedia(index)}>✕</button>
-            </div>
-          ))}
-          {uploadingFiles.map((f, i) => (
-            <div key={`uploading-${i}`} className="media-preview-item">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f5f5f5', fontSize: '12px', color: '#888' }}>
-                Uploading...
-              </div>
-              <div className="upload-progress">
-                <div className="upload-progress-bar upload-progress-indeterminate" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="screen-actions">
-        <Button id="btnNextMedia" text="NEXT →" onClick={onNext} className="btn-primary" />
-        <Button id="btnSkip" text="Skip" onClick={onSkip} className="btn-secondary" />
-        <Button id="btnBack" text="← Back" onClick={onBack} className="btn-secondary" />
-        <Button id="btnCancel" text="Cancel" onClick={onCancel} className="btn-secondary" />
-      </div>
-    </div>
-  );
-};
-
-/**
- * Review Screen - Summary of all information
- */
-export const ReviewScreen = ({ 
-  progress = 80,
-  reportData = {},
-  onEdit,
-  onConfirm
-}) => {
   const {
     category = '',
     selectedCategories = [],
@@ -2184,7 +1954,76 @@ export const ReviewScreen = ({
       <ProgressBar progress={progress} />
       <Heading text="Review Your Report" level={2} />
       <Text text="Please review all the information before submitting your noise report." />
-      
+
+      {/* Inline Media Upload (absorbed from MediaScreen) */}
+      <div className="review-media-section">
+        <h3 className="section-title">📷 Add Photos or Videos (Optional)</h3>
+        <p className="media-hint">Max 5 files, 10 MB each. Supported: JPEG, PNG, WebP, MP4.</p>
+
+        <div
+          className={`media-dropzone${dragOver ? ' drag-over' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div style={{ fontSize: '2rem' }}>📁</div>
+          <p>Drag & drop files here, or click to browse</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,video/mp4"
+            style={{ display: 'none' }}
+            onChange={(e) => { if (e.target.files.length) onPickFromDevice(e.target.files); e.target.value = ''; }}
+          />
+        </div>
+
+        <div className="media-options" style={{ marginBottom: '12px' }}>
+          <Button
+            id="btnUseCamera"
+            text="📷 Use Camera"
+            onClick={() => cameraInputRef.current?.click()}
+            className="btn-secondary"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={(e) => { if (e.target.files.length) onUseCamera(e.target.files); e.target.value = ''; }}
+          />
+        </div>
+
+        {mediaError && <p className="media-error">{mediaError}</p>}
+
+        {(mediaFiles.length > 0 || uploadingFiles.length > 0) && (
+          <div className="media-preview-grid">
+            {mediaFiles.map((file, index) => (
+              <div key={index} className="media-preview-item">
+                {file.type === 'video' ? (
+                  <video src={file.url} />
+                ) : (
+                  <img src={file.url || file.preview} alt={`Media ${index + 1}`} />
+                )}
+                <button className="remove-btn" onClick={() => onRemoveMedia(index)}>✕</button>
+              </div>
+            ))}
+            {uploadingFiles.map((f, i) => (
+              <div key={`uploading-${i}`} className="media-preview-item">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f5f5f5', fontSize: '12px', color: '#888' }}>
+                  Uploading...
+                </div>
+                <div className="upload-progress">
+                  <div className="upload-progress-bar upload-progress-indeterminate" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="review-summary">
         <div className="summary-section">
           <h3 className="section-title">📋 Report Summary</h3>
@@ -2300,12 +2139,6 @@ export const ReviewScreen = ({
             <div className="summary-item">
               <span className="summary-label">Media Files:</span>
               <span className="summary-value">{mediaFiles.length} file(s) attached</span>
-              <button 
-                className="edit-btn"
-                onClick={() => onEdit('media')}
-              >
-                Edit
-              </button>
             </div>
           )}
 
@@ -2343,6 +2176,12 @@ export const ReviewScreen = ({
         </div>
 
         <div className="review-actions">
+          <Button
+            id="btnBack"
+            text="← Back"
+            onClick={onBack}
+            className="btn-secondary"
+          />
           <Button
             id="btnEditReport"
             text="Edit Report"

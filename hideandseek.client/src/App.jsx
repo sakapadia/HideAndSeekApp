@@ -177,11 +177,11 @@ const fetchReportDataForBounds = async (bounds) => {
 // ===== STATUS BADGE HELPER =====
 const getStatusBadgeHtml = (status) => {
   const statusStyles = {
-    Open: 'background:#e3f2fd;color:#1565c0',
-    Acknowledged: 'background:#fff3e0;color:#e65100',
-    InProgress: 'background:#f3e5f5;color:#7b1fa2',
-    Resolved: 'background:#e8f5e9;color:#2e7d32',
-    Closed: 'background:#f5f5f5;color:#757575'
+    Open: 'background:#dbe4ff;color:#3b5bdb',
+    Acknowledged: 'background:#fff3bf;color:#e67700',
+    InProgress: 'background:#f3d9fa;color:#9c36b5',
+    Resolved: 'background:#d3f9d8;color:#2b8a3e',
+    Closed: 'background:#f1f3f5;color:#868e96'
   };
   const s = status || 'Open';
   const style = statusStyles[s] || statusStyles.Open;
@@ -201,10 +201,10 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
   let statusButtons = '';
   if (isAuthor) {
     if (status === 'Open' || status === 'Acknowledged' || status === 'InProgress') {
-      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Resolved')" style="background:#2e7d32;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">Mark Resolved</button>`;
+      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Resolved')" style="background:#2f9e44;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;">Mark Resolved</button>`;
     }
     if (status === 'Resolved' || status === 'Closed') {
-      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Open')" style="background:#1565c0;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Reopen</button>`;
+      statusButtons += `<button onclick="window.updateReportStatus('${safeId}','Open')" style="background:#5c7cfa;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Reopen</button>`;
     }
   }
 
@@ -229,20 +229,20 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
 
   return `
     <div style="padding: 10px; max-width: 300px;">
-      <h3 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">${noiseType} ${getStatusBadgeHtml(status)}</h3>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Noise Level:</strong> ${noiseLevel}/10</p>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Reported:</strong> ${reportDate}</p>
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Location:</strong> ${safeAddress}</p>
-      ${safeBlastRadius ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Blast Radius:</strong> ${safeBlastRadius}</p>` : ''}
-      ${safeTimeOption ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Time:</strong> ${safeTimeOption}</p>` : ''}
-      <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Estimated Duration:</strong> ${safeDuration}</p>
+      <h3 style="margin: 0 0 8px 0; color: #212529; font-size: 16px; font-weight: 700;">${noiseType} ${getStatusBadgeHtml(status)}</h3>
+      <p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Noise Level:</strong> ${noiseLevel}/10</p>
+      <p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Reported:</strong> ${reportDate}</p>
+      <p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Location:</strong> ${safeAddress}</p>
+      ${safeBlastRadius ? `<p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Blast Radius:</strong> ${safeBlastRadius}</p>` : ''}
+      ${safeTimeOption ? `<p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Time:</strong> ${safeTimeOption}</p>` : ''}
+      <p style="margin: 5px 0; color: #495057; font-size: 14px;"><strong>Estimated Duration:</strong> ${safeDuration}</p>
       ${(report.isRecurring || report.IsRecurring) ? `<p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Recurring:</strong> Yes</p>` : ''}
       ${mergedCount > 0 ? `<p style="margin: 5px 0; color: #4CAF50; font-size: 12px;"><strong>📝 ${mergedCount} related reports merged</strong></p>` : ''}
       ${mediaHtml}
       ${statusButtons ? `<div style="margin-top:6px;">${statusButtons}</div>` : ''}
 
       <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Comments (${parseInt(commentCount) || 0})</h4>
+        <h4 style="margin: 0 0 8px 0; color: #212529; font-size: 14px; font-weight: 700;">Comments (${parseInt(commentCount) || 0})</h4>
         <div id="comments-${safeId}" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
           <p style="margin: 5px 0; color: #666; font-size: 12px; font-style: italic;">Loading comments...</p>
         </div>
@@ -250,7 +250,7 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
           <input type="text" id="comment-input-${safeId}" placeholder="Add a comment..."
                  style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
           <button onclick="window.addComment('${safeId}')"
-                  style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                  style="background: #5c7cfa; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
             Add
           </button>
         </div>
@@ -261,7 +261,7 @@ const buildInfoWindowContent = (report, reportId, addressDisplay, estimatedDurat
           id="upvote-btn-${safeId}"
           onclick="window.upvoteReport('${safeId}')"
           style="
-            background: ${hasUpvoted ? '#ccc' : '#667eea'};
+            background: ${hasUpvoted ? '#ccc' : '#5c7cfa'};
             color: white;
             border: none;
             padding: 6px 12px;
@@ -287,7 +287,7 @@ const MAP_STYLES = [
   {
     featureType: 'all',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#667eea' }]
+    stylers: [{ color: '#5c7cfa' }]
   },
   {
     featureType: 'water',
@@ -489,9 +489,9 @@ function App() {
   };
 
   const getNoiseLevelColor = (level) => {
-    if (level <= 3) return '#4CAF50'; // Green for low noise
-    if (level <= 6) return '#FF9800'; // Orange for medium noise
-    return '#F44336'; // Red for high noise
+    if (level <= 3) return '#40c057'; // Bright green for low noise
+    if (level <= 6) return '#fab005'; // Vivid yellow for medium noise
+    return '#fa5252'; // Bright red for high noise
   };
 
   // Extract duplicate OAuth login success handler
@@ -923,7 +923,7 @@ function App() {
                 const markerContent = userMarker.content;
                 markerContent.innerHTML = `
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="10" fill="#5c7cfa" stroke="white" stroke-width="2"/>
                     <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
                   </svg>
                 `;
@@ -1003,7 +1003,7 @@ function App() {
         const markerContent = userMarker.content;
         markerContent.innerHTML = `
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+            <circle cx="12" cy="12" r="10" fill="#5c7cfa" stroke="white" stroke-width="2"/>
             <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
           </svg>
         `;
@@ -1040,7 +1040,7 @@ function App() {
     // Find the button element and update its appearance
     const buttonElement = document.getElementById(`upvote-btn-${reportId}`);
     if (buttonElement) {
-      buttonElement.style.background = hasUpvoted ? '#ccc' : '#667eea';
+      buttonElement.style.background = hasUpvoted ? '#ccc' : '#5c7cfa';
       buttonElement.style.cursor = hasUpvoted ? 'not-allowed' : 'pointer';
       buttonElement.disabled = hasUpvoted;
       buttonElement.innerHTML = `👍 ${upvoteCount}`;
@@ -1431,7 +1431,7 @@ function App() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 height: '100%',
-                color: '#667eea',
+                color: '#5c7cfa',
                 fontSize: '1.2rem',
                 fontWeight: '600',
                 textAlign: 'center',
@@ -1533,10 +1533,10 @@ function App() {
                   style={{
                     marginTop: '12px',
                     width: '100%',
-                    background: 'rgba(102, 126, 234, 0.08)',
-                    border: '2px solid #667eea',
+                    background: 'rgba(92, 124, 250, 0.08)',
+                    border: '2px solid #5c7cfa',
                     borderRadius: '8px',
-                    color: '#667eea',
+                    color: '#5c7cfa',
                     fontSize: '0.8rem',
                     fontWeight: '600',
                     padding: '7px 10px',
@@ -2210,7 +2210,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
     // Find the button element and update its appearance
     const buttonElement = document.getElementById(`upvote-btn-${reportId}`);
     if (buttonElement) {
-      buttonElement.style.background = hasUpvoted ? '#ccc' : '#667eea';
+      buttonElement.style.background = hasUpvoted ? '#ccc' : '#5c7cfa';
       buttonElement.style.cursor = hasUpvoted ? 'not-allowed' : 'pointer';
       buttonElement.disabled = hasUpvoted;
       buttonElement.innerHTML = `👍 ${upvoteCount}`;
@@ -2467,7 +2467,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         const markerContent = userMarker.content;
         markerContent.innerHTML = `
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="#667eea" stroke="white" stroke-width="2"/>
+            <circle cx="12" cy="12" r="10" fill="#5c7cfa" stroke="white" stroke-width="2"/>
             <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
           </svg>
         `;
@@ -2872,15 +2872,15 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           <div className="legend">
             <h4>Noise Level Legend</h4>
             <div className="legend-item">
-              <span className="legend-color" style={{ backgroundColor: '#4CAF50' }}></span>
+              <span className="legend-color" style={{ backgroundColor: '#40c057' }}></span>
               <span>Low (1-3)</span>
             </div>
             <div className="legend-item">
-              <span className="legend-color" style={{ backgroundColor: '#FF9800' }}></span>
+              <span className="legend-color" style={{ backgroundColor: '#fab005' }}></span>
               <span>Medium (4-6)</span>
             </div>
             <div className="legend-item">
-              <span className="legend-color" style={{ backgroundColor: '#F44336' }}></span>
+              <span className="legend-color" style={{ backgroundColor: '#fa5252' }}></span>
               <span>High (7-10)</span>
             </div>
             

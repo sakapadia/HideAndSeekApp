@@ -2,11 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   MainMenuScreen,
   WhatScreen,
-  CategoryDetailsScreen,
   WhereScreen,
   WhenScreen,
-  RecurrenceScreen,
-  MediaScreen,
   ReviewScreen,
   PaymentScreen,
   PaymentFormScreen,
@@ -47,11 +44,8 @@ const SCREENS = {
   PRE_LOGIN: 'PreLogin',
   MAIN_MENU: 'MainMenu',
   WHAT: 'What',
-  CATEGORY_DETAILS: 'CategoryDetails',
   WHERE: 'Where',
   WHEN: 'When',
-  RECURRENCE: 'Recurrence',
-  MEDIA: 'Media',
   REVIEW: 'Review',
   PAYMENT: 'Payment',
   PAYMENT_FORM: 'PaymentForm',
@@ -113,11 +107,8 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PRE_LOGIN,
       SCREENS.MAIN_MENU,
       SCREENS.WHAT,
-      SCREENS.CATEGORY_DETAILS,
       SCREENS.WHERE,
       SCREENS.WHEN,
-      SCREENS.RECURRENCE,
-      SCREENS.MEDIA,
       SCREENS.REVIEW,
       SCREENS.PAYMENT,
       SCREENS.PAYMENT_FORM,
@@ -127,12 +118,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     const currentIndex = screenOrder.indexOf(currentScreen);
     if (currentIndex < screenOrder.length - 1) {
       const nextScreen = screenOrder[currentIndex + 1];
-
-      // Skip recurrence screen if not recurring
-      if (currentScreen === SCREENS.WHEN && !reportData.isRecurring) {
-        setCurrentScreen(SCREENS.MEDIA);
-        return;
-      }
 
       // Skip payment screens for regular reports (non-organizers)
       if (userType !== 'organizer' && (nextScreen === SCREENS.PAYMENT || nextScreen === SCREENS.PAYMENT_FORM)) {
@@ -148,11 +133,8 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       SCREENS.PRE_LOGIN,
       SCREENS.MAIN_MENU,
       SCREENS.WHAT,
-      SCREENS.CATEGORY_DETAILS,
       SCREENS.WHERE,
       SCREENS.WHEN,
-      SCREENS.RECURRENCE,
-      SCREENS.MEDIA,
       SCREENS.REVIEW,
       SCREENS.PAYMENT,
       SCREENS.PAYMENT_FORM,
@@ -161,15 +143,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
 
     const currentIndex = screenOrder.indexOf(currentScreen);
     if (currentIndex > 0) {
-      const previousScreen = screenOrder[currentIndex - 1];
-
-      // Skip recurrence screen when going back if not recurring
-      if (currentScreen === SCREENS.MEDIA && !reportData.isRecurring) {
-        setCurrentScreen(SCREENS.WHEN);
-        return;
-      }
-
-      setCurrentScreen(previousScreen);
+      setCurrentScreen(screenOrder[currentIndex - 1]);
     }
   };
 
@@ -309,13 +283,6 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }));
   };
 
-  const handleCustomSlotsChange = (slots) => {
-    setReportData(prev => ({
-      ...prev,
-      customSlots: slots
-    }));
-  };
-
   const handleRecurringChange = (isRecurring) => {
     setReportData(prev => ({
       ...prev,
@@ -323,12 +290,8 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }));
   };
 
-  const handleConfigureRecurrence = () => {
-    navigateTo(SCREENS.RECURRENCE);
-  };
-
   // ===== RECURRENCE SCREEN HANDLERS =====
-  
+
   const handleRecurrenceChange = (config) => {
     setReportData(prev => ({
       ...prev,
@@ -428,16 +391,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
     }));
   };
 
-  const handleSkipMedia = () => {
-    goToNext();
-  };
-
   // ===== REVIEW SCREEN HANDLERS =====
   
   const handleReviewEdit = (section) => {
     // Navigate to the appropriate screen based on what needs to be edited
     switch (section) {
       case 'category':
+      case 'description':
+      case 'noiseLevel':
+      case 'categoryDetails':
         setCurrentScreen(SCREENS.WHAT);
         break;
       case 'location':
@@ -445,27 +407,14 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
         break;
       case 'date':
       case 'time':
-        setCurrentScreen(SCREENS.WHEN);
-        break;
       case 'recurrence':
-        setCurrentScreen(SCREENS.RECURRENCE);
-        break;
-      case 'media':
-        setCurrentScreen(SCREENS.MEDIA);
-        break;
-      case 'description':
-      case 'noiseLevel':
-        setCurrentScreen(SCREENS.WHAT);
-        break;
-      case 'categoryDetails':
-        setCurrentScreen(SCREENS.CATEGORY_DETAILS);
+        setCurrentScreen(SCREENS.WHEN);
         break;
       case 'contact':
         // Could navigate to a contact screen or stay on review
         break;
       case 'general':
       default:
-        // Go back to the first screen to start over
         setCurrentScreen(SCREENS.WHAT);
         break;
     }
@@ -649,7 +598,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.WHAT:
         return (
           <WhatScreen
-            progress={10}
+            progress={25}
             selectedCategories={reportData.selectedCategories}
             onCategorySelect={handleCategorySelect}
             onSearchChange={handleSearchChange}
@@ -661,23 +610,14 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
             searchValue={reportData.searchValue}
             noiseLevel={reportData.noiseLevel}
             description={reportData.description}
-          />
-        );
-      case SCREENS.CATEGORY_DETAILS:
-        return (
-          <CategoryDetailsScreen
-            progress={20}
-            reportData={reportData}
+            categorySpecificData={reportData.categorySpecificData}
             onCategorySpecificDataChange={handleCategorySpecificDataChange}
-            onNext={goToNext}
-            onBack={goToPrevious}
-            onCancel={handleCancel}
           />
         );
       case SCREENS.WHERE:
         return (
           <WhereScreen
-            progress={35}
+            progress={50}
             streetAddress={reportData.streetAddress}
             city={reportData.city}
             state={reportData.state}
@@ -696,43 +636,15 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.WHEN:
         return (
           <WhenScreen
-            progress={50}
+            progress={75}
             timeOption={reportData.timeOption}
             customDate={reportData.customDate}
-            customSlots={reportData.customSlots}
             isRecurring={reportData.isRecurring}
             onTimeOptionChange={handleTimeOptionChange}
             onCustomDateChange={handleCustomDateChange}
-            onCustomSlotsChange={handleCustomSlotsChange}
             onRecurringChange={handleRecurringChange}
-            onConfigureRecurrence={handleConfigureRecurrence}
-            onNext={goToNext}
-            onBack={goToPrevious}
-            onCancel={handleCancel}
-          />
-        );
-      case SCREENS.RECURRENCE:
-        return (
-          <RecurrenceScreen
-            progress={60}
             recurrenceConfig={reportData.recurrenceConfig}
             onRecurrenceChange={handleRecurrenceChange}
-            onNext={goToNext}
-            onBack={goToPrevious}
-            onCancel={handleCancel}
-          />
-        );
-      case SCREENS.MEDIA:
-        return (
-          <MediaScreen
-            progress={70}
-            mediaFiles={reportData.mediaFiles}
-            onPickFromDevice={handlePickFromDevice}
-            onUseCamera={handleUseCamera}
-            onRemoveMedia={handleRemoveMedia}
-            uploadingFiles={uploadingFiles}
-            mediaError={mediaError}
-            onSkip={handleSkipMedia}
             onNext={goToNext}
             onBack={goToPrevious}
             onCancel={handleCancel}
@@ -741,10 +653,16 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
       case SCREENS.REVIEW:
         return (
           <ReviewScreen
-            progress={85}
+            progress={90}
             reportData={reportData}
             onEdit={handleReviewEdit}
             onConfirm={handleConfirm}
+            onBack={goToPrevious}
+            onPickFromDevice={handlePickFromDevice}
+            onUseCamera={handleUseCamera}
+            onRemoveMedia={handleRemoveMedia}
+            uploadingFiles={uploadingFiles}
+            mediaError={mediaError}
           />
         );
       case SCREENS.PAYMENT:

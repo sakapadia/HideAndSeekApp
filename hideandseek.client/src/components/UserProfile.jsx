@@ -173,9 +173,9 @@ export const UserProfile = ({
   };
 
   const getNoiseLevelColor = (level) => {
-    if (level <= 3) return '#4CAF50'; // Green
-    if (level <= 6) return '#FF9800'; // Orange
-    return '#F44336'; // Red
+    if (level <= 3) return '#40c057'; // Bright green
+    if (level <= 6) return '#fab005'; // Vivid yellow
+    return '#fa5252'; // Bright red
   };
 
   // Parse category-specific data from JSON string

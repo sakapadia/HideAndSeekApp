@@ -1,11 +1,81 @@
+/* ===== DESIGN TOKEN SYSTEM ===== */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* --- Primary Palette --- */
+  --color-primary: #5c7cfa;
+  --color-primary-accent: #9775fa;
+  --color-primary-deep: #ae3ec9;
+  --color-primary-hover: #4c6ef5;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* --- Gradients --- */
+  --gradient-primary: linear-gradient(135deg, #5c7cfa 0%, #9775fa 50%, #ae3ec9 100%);
+  --gradient-action: linear-gradient(135deg, #be4bdb 0%, #f76707 100%);
+  --gradient-action-hover: linear-gradient(135deg, #9c36b5 0%, #e8590c 100%);
+
+  /* --- Gray Scale --- */
+  --color-gray-50: #f8f9fa;
+  --color-gray-100: #f1f3f5;
+  --color-gray-200: #e9ecef;
+  --color-gray-300: #dee2e6;
+  --color-gray-400: #ced4da;
+  --color-gray-500: #adb5bd;
+  --color-gray-600: #868e96;
+  --color-gray-700: #495057;
+  --color-gray-800: #343a40;
+  --color-gray-900: #212529;
+
+  /* --- Text --- */
+  --color-text: #212529;
+  --color-text-secondary: #495057;
+  --color-text-muted: #868e96;
+
+  /* --- Status Colors --- */
+  --color-success: #2f9e44;
+  --color-warning: #f08c00;
+  --color-error: #e03131;
+  --color-info: #1971c2;
+
+  /* --- Shadows (3 tiers) --- */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.2);
+  --shadow-primary: 0 4px 15px rgba(92, 124, 250, 0.35);
+  --shadow-action: 0 4px 15px rgba(190, 75, 219, 0.35);
+
+  /* --- Border Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* --- Spacing (4px base) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* --- Typography --- */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-base: 15px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* --- Misc --- */
+  --border-color: var(--color-gray-300);
+
+  font-family: var(--font-family);
+  line-height: 1.5;
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-base);
+
+  color-scheme: light;
+  color: var(--color-text);
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -14,12 +84,12 @@
 }
 
 a {
-  font-weight: 500;
-  color: #646cff;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--color-primary-hover);
 }
 
 body {
@@ -36,33 +106,20 @@ h1 {
 }
 
 button {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--color-gray-50);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--color-primary);
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
 }

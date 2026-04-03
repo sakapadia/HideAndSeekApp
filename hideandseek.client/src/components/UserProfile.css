@@ -31,7 +31,7 @@
   flex-direction: column;
   align-items: center;
   padding: 36px 24px 28px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
 }
 
@@ -146,7 +146,7 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: #333;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 2px solid var(--color-primary);
   padding-bottom: 8px;
 }
 
@@ -190,14 +190,14 @@
 
 .info-item-edit .btn-outline {
   margin-top: 0;
-  background: #667eea;
-  border-color: #667eea;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
 .info-item-edit .btn-outline:hover {
-  background: #5a6fd8;
-  border-color: #5a6fd8;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   color: white;
 }
 
@@ -225,9 +225,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 4px rgba(92, 124, 250, 0.3);
 }
 
 /* Style for empty info values */
@@ -258,9 +258,9 @@
   border-radius: 20px;
   font-size: 0.95rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 4px rgba(92, 124, 250, 0.3);
 }
 
 /* Edit Form Styles */
@@ -294,8 +294,8 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.1);
 }
 
 .form-actions {
@@ -309,7 +309,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: var(--gradient-primary);
   border-radius: 12px;
   padding: 24px;
   color: white;
@@ -368,7 +368,7 @@
 .report-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
-  border-color: #667eea;
+  border-color: var(--color-primary);
 }
 
 .report-header {
@@ -448,18 +448,18 @@
 .report-category-details {
   margin-top: 12px;
   padding: 12px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(92, 124, 250, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
   border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(92, 124, 250, 0.2);
 }
 
 .category-details-header {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #667eea;
+  color: var(--color-primary);
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  border-bottom: 1px solid rgba(92, 124, 250, 0.2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -564,8 +564,8 @@
 /* Button Styles */
 .btn-outline {
   background: transparent;
-  border: 2px solid #667eea;
-  color: #667eea;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
   padding: 10px 20px;
   border-radius: 6px;
   font-weight: 600;
@@ -575,12 +575,12 @@
 }
 
 .btn-outline:hover {
-  background: #667eea;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--color-primary);
   border: none;
   color: white;
   padding: 10px 20px;
@@ -591,7 +591,7 @@
 }
 
 .btn-primary:hover {
-  background: #5a6fd8;
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {

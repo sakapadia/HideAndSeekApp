@@ -289,7 +289,7 @@ export const Toggle = ({
         style={{
           width: '60px',
           height: '30px',
-          backgroundColor: checked ? '#667eea' : '#e1e5e9',
+          backgroundColor: checked ? '#5c7cfa' : '#e1e5e9',
           borderRadius: '15px',
           position: 'relative',
           cursor: 'pointer',
