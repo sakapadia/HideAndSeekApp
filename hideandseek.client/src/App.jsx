@@ -1733,6 +1733,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [cachedReports, setCachedReports] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
   const [expandedFilterCategories, setExpandedFilterCategories] = useState({});
+  const [legendCollapsed, setLegendCollapsed] = useState(window.innerWidth <= 768);
   const mapUserLocationMarkerRef = React.useRef(null);
 
   // Build the full category tree from CATEGORY_FIELDS (always shows all 10 main + 30 sub)
@@ -2868,8 +2869,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
           </div>
         )}
         
-        <div className="legend-section">
-          <div className="legend">
+        <div className={`legend-section ${legendCollapsed ? 'legend-collapsed' : ''}`}>
+          <button
+            className="legend-toggle"
+            onClick={() => setLegendCollapsed(prev => !prev)}
+          >
+            {legendCollapsed ? '▶ Legend' : '▼ Legend'}
+          </button>
+          {!legendCollapsed && <div className="legend">
             <h4>Noise Level Legend</h4>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#40c057' }}></span>
@@ -2959,7 +2966,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
             >
               📍 Center on Me
             </button>
-          </div>
+          </div>}
         </div>
       </div>
 

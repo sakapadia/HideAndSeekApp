@@ -212,6 +212,19 @@ body {
   max-width: 220px;
 }
 
+.legend-toggle {
+  display: none;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+}
+
 .report-button {
   width: 100%;
   background: var(--gradient-action);
@@ -609,6 +622,42 @@ body {
   
   .error-actions .btn {
     width: 200px;
+  }
+
+  .legend-toggle {
+    display: block;
+  }
+
+  .legend-section {
+    min-width: auto;
+    max-width: 160px;
+    padding: 0.6rem 0.75rem;
+    top: 120px;
+  }
+
+  .legend-section.legend-collapsed {
+    max-width: none;
+    width: auto;
+  }
+
+  .legend-section .legend {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .legend-section .legend h4 {
+    font-size: 0.75rem;
+  }
+
+  .legend-section .legend-item {
+    font-size: 0.7rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .legend-section .legend-color {
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
   }
 }
 
