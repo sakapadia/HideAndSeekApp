@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using HideandSeek.Server.Models;
 using HideandSeek.Server.Services;
 using Microsoft.AspNetCore.Authorization; // Added for Authorize attribute
+using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Linq;
 using Azure;
@@ -23,6 +25,7 @@ public class NoiseReportsController : ControllerBase
     private readonly IGeocodingService _geocodingService;
     private readonly ReportMergingService _reportMergingService;
     private readonly ILogger<NoiseReportsController> _logger;
+    private readonly IBlobStorageService? _blobStorageService;
 
     /// <summary>
     /// Initializes the controller with dependency injection.
@@ -32,13 +35,38 @@ public class NoiseReportsController : ControllerBase
     /// <param name="geocodingService">Service for geocoding operations</param>
     /// <param name="reportMergingService">Service for handling report merging logic</param>
     /// <param name="logger">Logger for error tracking and debugging</param>
-    public NoiseReportsController(ITableStorageService tableStorageService, IUserService userService, IGeocodingService geocodingService, ReportMergingService reportMergingService, ILogger<NoiseReportsController> logger)
+    /// <param name="serviceProvider">Service provider for optional dependencies</param>
+    public NoiseReportsController(ITableStorageService tableStorageService, IUserService userService, IGeocodingService geocodingService, ReportMergingService reportMergingService, ILogger<NoiseReportsController> logger, IServiceProvider serviceProvider)
     {
         _tableStorageService = tableStorageService;
         _userService = userService;
         _geocodingService = geocodingService;
         _reportMergingService = reportMergingService;
         _logger = logger;
+        _blobStorageService = serviceProvider.GetService<IBlobStorageService>();
+    }
+
+    /// <summary>
+    /// Refreshes SAS tokens on media file URLs so they don't expire.
+    /// </summary>
+    private List<string> RefreshMediaUrls(List<string>? mediaUrls)
+    {
+        if (_blobStorageService == null || mediaUrls == null || mediaUrls.Count == 0)
+            return mediaUrls ?? new List<string>();
+
+        for (int i = 0; i < mediaUrls.Count; i++)
+        {
+            try
+            {
+                mediaUrls[i] = _blobStorageService.GetSasUrl(mediaUrls[i]);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to refresh SAS URL for media file, using original URL");
+            }
+        }
+
+        return mediaUrls;
     }
 
     /// <summary>
@@ -110,6 +138,13 @@ public class NoiseReportsController : ControllerBase
 
             // Retrieve noise reports from the storage service
             var response = await _tableStorageService.GetNoiseReportsAsync(bounds, since, filter, pageSize);
+
+            // Refresh SAS tokens on media URLs so they don't return 403
+            foreach (var report in response.Reports)
+            {
+                report.MediaFiles = RefreshMediaUrls(report.MediaFiles);
+            }
+
             return Ok(response);
         }
         catch (Exception ex)
@@ -554,7 +589,7 @@ public class NoiseReportsController : ControllerBase
                 CategorySpecificData = report.CategorySpecificData ?? string.Empty,
                 Status = report.Status ?? "Open",
                 SubmittedBy = report.SubmittedBy ?? string.Empty,
-                MediaFiles = report.GetMediaFilesList()
+                MediaFiles = RefreshMediaUrls(report.GetMediaFilesList())
             }).ToList();
 
             return Ok(reportDtos);
@@ -911,6 +946,13 @@ public class NoiseReportsController : ControllerBase
             if (report == null)
             {
                 return NotFound(new { message = "Report not found" });
+            }
+
+            // Refresh SAS tokens on media URLs
+            var mediaFiles = report.GetMediaFilesList();
+            if (mediaFiles.Count > 0)
+            {
+                report.SetMediaFilesList(RefreshMediaUrls(mediaFiles));
             }
 
             return Ok(report);

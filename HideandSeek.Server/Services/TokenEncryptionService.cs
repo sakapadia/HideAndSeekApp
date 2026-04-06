@@ -22,8 +22,9 @@ public class TokenEncryptionService : ITokenEncryptionService
 
     public TokenEncryptionService(IConfiguration configuration)
     {
-        var secret = configuration["TokenEncryption:Key"]
-            ?? throw new InvalidOperationException("TokenEncryption:Key must be configured.");
+        var secret = configuration["TokenEncryption:Key"];
+        if (string.IsNullOrEmpty(secret))
+            throw new InvalidOperationException("TokenEncryption:Key must be configured. Set it via environment variables, user-secrets, or Azure App Settings.");
 
         // Derive a 256-bit key from the configured secret using HKDF
         var inputBytes = System.Text.Encoding.UTF8.GetBytes(secret);

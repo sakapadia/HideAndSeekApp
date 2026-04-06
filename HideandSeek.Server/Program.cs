@@ -42,8 +42,9 @@ builder.Services.AddCors(options =>
 });
 
 // Add JWT Authentication
-var jwtSecret = builder.Configuration["JwtSettings:SecretKey"]
-    ?? throw new InvalidOperationException("JwtSettings:SecretKey must be configured. Set it via environment variables, user-secrets, or Azure App Settings.");
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"];
+if (string.IsNullOrEmpty(jwtSecret))
+    throw new InvalidOperationException("JwtSettings:SecretKey must be configured. Set it via environment variables, user-secrets, or Azure App Settings.");
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "HideandSeek";
 var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "HideandSeekUsers";
 
