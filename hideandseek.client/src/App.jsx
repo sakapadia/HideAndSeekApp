@@ -1447,7 +1447,7 @@ function App() {
             )}
           </div>
           
-          {/* Blast Radius Legend for Persistent Map */}
+          {/* Categories Legend for Persistent Map */}
           {mapsLoaded && (
             <div style={{
               position: 'absolute',
@@ -1460,42 +1460,7 @@ function App() {
               fontSize: '12px',
               zIndex: 1000
             }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Blast Radius</div>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
-                  border: '1px solid rgba(255, 0, 0, 0.3)',
-                  marginRight: '6px'
-                }}></div>
-                <span>Small</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  backgroundColor: 'rgba(255, 0, 0, 0.1)', 
-                  border: '1px solid rgba(255, 0, 0, 0.3)',
-                  marginRight: '6px'
-                }}></div>
-                <span>Medium</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(255, 0, 0, 0.1)',
-                  border: '1px solid rgba(255, 0, 0, 0.3)',
-                  marginRight: '6px'
-                }}></div>
-                <span>Large</span>
-              </div>
-
-              <div style={{ borderTop: '1px solid #e0e0e0', marginTop: '10px', paddingTop: '10px' }}>
+              <div>
                 <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#333' }}>Categories</div>
                 {Object.entries(CATEGORY_PIN_CONFIG).map(([name, cfg]) => {
                   const shortName = name
@@ -2891,44 +2856,6 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
               <span>High (7-10)</span>
             </div>
             
-            <h4 style={{ marginTop: '15px', marginBottom: '8px' }}>Blast Radius Legend</h4>
-            <div className="legend-item">
-              <div style={{ 
-                width: '20px', 
-                height: '20px', 
-                borderRadius: '50%', 
-                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
-                border: '2px solid rgba(255, 0, 0, 0.3)',
-                display: 'inline-block',
-                marginRight: '8px'
-              }}></div>
-              <span>Small (100m)</span>
-            </div>
-            <div className="legend-item">
-              <div style={{ 
-                width: '20px', 
-                height: '20px', 
-                borderRadius: '50%', 
-                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
-                border: '2px solid rgba(255, 0, 0, 0.3)',
-                display: 'inline-block',
-                marginRight: '8px'
-              }}></div>
-              <span>Medium (250m)</span>
-            </div>
-            <div className="legend-item">
-              <div style={{ 
-                width: '20px', 
-                height: '20px', 
-                borderRadius: '50%', 
-                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
-                border: '2px solid rgba(255, 0, 0, 0.3)',
-                display: 'inline-block',
-                marginRight: '8px',
-                transform: 'scale(1.2)'
-              }}></div>
-              <span>Large (500m)</span>
-            </div>
 
             <h4 style={{ marginTop: '15px', marginBottom: '8px' }}>Category Pins</h4>
             {Object.entries(CATEGORY_PIN_CONFIG).map(([name, cfg]) => {
