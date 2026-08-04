@@ -17,7 +17,7 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  max-width: 800px;
+  max-width: min(800px, 92vw);
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
@@ -159,7 +159,7 @@
 
 .info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   width: 100%;
 }
 
@@ -644,7 +644,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .user-profile-modal {
     margin: 10px;
     max-height: 95vh;

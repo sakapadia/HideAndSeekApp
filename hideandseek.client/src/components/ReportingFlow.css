@@ -25,7 +25,7 @@
   background: white;
   border-radius: 20px;
   padding: 2rem;
-  max-width: 500px;
+  max-width: min(500px, 92vw);
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -84,11 +84,11 @@
 }
 
 .heading.h1 {
-  font-size: 2.8rem;
+  font-size: clamp(1.6rem, 3.5vw, 2.8rem);
 }
 
 .heading.h2 {
-  font-size: 2.2rem;
+  font-size: clamp(1.2rem, 2.5vw, 2.2rem);
 }
 
 /* ===== TEXT ===== */
@@ -102,10 +102,10 @@
 /* ===== BUTTONS ===== */
 .btn {
   width: 100%;
-  padding: 15px 20px;
+  padding: clamp(10px, 1.5vw, 15px) clamp(16px, 2.5vw, 20px);
   border: none;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1005,7 +1005,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .screen {
     padding: 1.5rem;
     margin: 0 !important; /* Remove margin for fixed positioning */
@@ -1212,7 +1212,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR REVIEW ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .summary-item {
     flex-direction: column;
     align-items: flex-start;
@@ -1380,7 +1380,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR MAIN MENU ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .main-menu-screen {
     padding: 1rem;
     width: var(--main-menu-width) !important; /* Maintain width */
@@ -1683,7 +1683,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR NEW COMPONENTS ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .noise-level-controls {
     flex-direction: column;
     align-items: stretch;
@@ -2089,7 +2089,7 @@
 }
 
 /* Responsive design for smaller screens */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .persistent-map {
     left: 0; /* On mobile, take full width */
     width: 100vw;
@@ -2143,14 +2143,14 @@
   }
 }
 
-@media (max-width: 1199px) and (min-width: 768px) {
+@media (max-width: 1199px) and (min-width: 1025px) {
   :root {
     --main-menu-width: 30vw; /* Maintain 3/10 on medium screens */
     --content-width: 70vw; /* Maintain 7/10 on medium screens */
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   :root {
     --main-menu-width: 30vw; /* Maintain 3/10 on smaller screens */
     --content-width: 70vw; /* Maintain 7/10 on smaller screens */
@@ -2265,7 +2265,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR REVIEW ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .summary-item {
     flex-direction: column;
     align-items: flex-start;
@@ -2433,7 +2433,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR MAIN MENU ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .main-menu-screen {
     padding: 1rem;
     width: var(--main-menu-width) !important; /* Maintain width */
@@ -2736,7 +2736,7 @@
 }
 
 /* ===== RESPONSIVE DESIGN FOR NEW COMPONENTS ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .noise-level-controls {
     flex-direction: column;
     align-items: stretch;
@@ -3142,7 +3142,7 @@
 }
 
 /* Responsive design for smaller screens */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .persistent-map {
     left: 0; /* On mobile, take full width */
     width: 100vw;
@@ -3283,7 +3283,7 @@
   border-bottom-color: var(--color-primary-deep);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .category-details-screen {
     padding: 1rem;
     width: 100vw !important;

@@ -1,5 +1,5 @@
 .oauth-login {
-  max-width: 400px;
+  max-width: min(400px, 90vw);
   margin: 0 auto;
   padding: 2rem;
   background: white;

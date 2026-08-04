@@ -1733,7 +1733,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
   const [cachedReports, setCachedReports] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
   const [expandedFilterCategories, setExpandedFilterCategories] = useState({});
-  const [legendCollapsed, setLegendCollapsed] = useState(window.innerWidth <= 768);
+  const [legendCollapsed, setLegendCollapsed] = useState(window.innerWidth <= 1024);
   const mapUserLocationMarkerRef = React.useRef(null);
 
   // Build the full category tree from CATEGORY_FIELDS (always shows all 10 main + 30 sub)

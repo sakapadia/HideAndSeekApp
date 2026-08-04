@@ -208,8 +208,7 @@ body {
   border-radius: var(--radius-lg);
   padding: 1rem;
   box-shadow: var(--shadow-md);
-  min-width: 200px;
-  max-width: 220px;
+  width: clamp(140px, 18vw, 220px);
 }
 
 .legend-toggle {
@@ -253,7 +252,7 @@ body {
 .legend h4 {
   margin-bottom: 0.5rem;
   color: #333;
-  font-size: 0.9rem;
+  font-size: clamp(0.7rem, 1.3vw, 0.9rem);
   font-weight: 600;
 }
 
@@ -261,7 +260,7 @@ body {
   display: flex;
   align-items: center;
   margin-bottom: 0.3rem;
-  font-size: 0.8rem;
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
   color: #666;
 }
 
@@ -441,7 +440,7 @@ body {
   background: white;
   border-radius: var(--radius-lg);
   padding: 2rem;
-  max-width: 500px;
+  max-width: min(500px, 90vw);
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -573,7 +572,7 @@ body {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .header h1 {
     font-size: 2rem;
   }
@@ -782,8 +781,7 @@ body {
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
-  min-width: 280px;
-  max-width: 320px;
+  width: clamp(240px, 30vw, 320px);
   max-height: 80vh;
   overflow-y: auto;
 }
@@ -1065,7 +1063,7 @@ body {
 }
 
 /* Responsive adjustments for filter panel */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .filter-panel {
     position: fixed;
     top: 50%;
@@ -1108,14 +1106,14 @@ body {
   background: white;
   border-radius: var(--radius-lg);
   padding: 2.5rem 2rem;
-  max-width: 960px;
+  max-width: min(960px, 92vw);
   width: 90%;
   text-align: center;
   box-shadow: var(--shadow-lg);
 }
 
 .mode-selector-title {
-  font-size: 1.8rem;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
   font-weight: 700;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
@@ -1138,7 +1136,7 @@ body {
 }
 
 .mode-selector-btn {
-  width: 170px;
+  width: clamp(120px, 15vw, 170px);
   padding: 1.5rem 1rem;
   border: 2px solid var(--color-gray-300);
   border-radius: var(--radius-md);
@@ -1174,7 +1172,7 @@ body {
 }
 
 /* Responsive: tablet */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .mode-selector-container {
     padding: 2rem 1.5rem;
   }
