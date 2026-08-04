@@ -25,7 +25,7 @@
   background: white;
   border-radius: 20px;
   padding: 2rem;
-  max-width: min(500px, 92vw);
+  max-width: 500px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -105,7 +105,7 @@
   padding: clamp(10px, 1.5vw, 15px) clamp(16px, 2.5vw, 20px);
   border: none;
   border-radius: 12px;
-  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  font-size: clamp(0.85rem, 1.8vw, 1rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;

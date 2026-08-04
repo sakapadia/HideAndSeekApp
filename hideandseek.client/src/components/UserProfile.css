@@ -648,7 +648,7 @@
   .user-profile-modal {
     margin: 10px;
     max-height: 95vh;
-    max-width: calc(100vw - 20px);
+    max-width: min(800px, calc(100vw - 20px));
   }
 
   .profile-header {
