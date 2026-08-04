@@ -2971,7 +2971,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       </div>
 
       {showReportForm && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 1000, background: 'white' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1000, pointerEvents: 'none' }}>
           <ReportingFlow
             userInfo={userInfo}
             startAtMainMenu={false}

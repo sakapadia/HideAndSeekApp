@@ -20,6 +20,20 @@
   overflow: visible;
 }
 
+/* When a fixed-panel screen is shown (report form from map view),
+   make wrapper transparent so the map remains visible behind it */
+.reporting-flow:has(.screen:not(.main-menu-screen)) {
+  padding: 0;
+  background: transparent;
+  min-height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.reporting-flow:has(.screen:not(.main-menu-screen)) .screen {
+  pointer-events: auto;
+}
+
 /* ===== SCREEN CONTAINER ===== */
 .screen {
   background: white;
