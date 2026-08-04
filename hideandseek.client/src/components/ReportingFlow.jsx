@@ -61,7 +61,7 @@ export const ReportingFlow = ({ onUserStateChange, userInfo = {}, onBackToMainMe
   
   // Current screen and navigation
   const [currentScreen, setCurrentScreen] = useState(
-    startAtMainMenu ? SCREENS.MAIN_MENU : SCREENS.PRE_LOGIN
+    startAtMainMenu ? SCREENS.MAIN_MENU : SCREENS.WHAT
   );
   const [isLoggedIn, setIsLoggedIn] = useState(userInfo.isLoggedIn || false);
   const [isGuest, setIsGuest] = useState(userInfo.isGuest || false);
