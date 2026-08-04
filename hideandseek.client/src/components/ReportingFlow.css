@@ -266,6 +266,11 @@
   gap: 0.5rem;
 }
 
+.required-asterisk {
+  color: #e53935;
+  font-weight: 700;
+}
+
 .input-label {
   font-weight: 600;
   color: #333;

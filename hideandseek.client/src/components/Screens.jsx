@@ -784,7 +784,7 @@ export const WhatScreen = ({
         <h3 className="section-title">Description</h3>
         <div className="description-input">
           <label htmlFor="description" className="description-label">
-            Describe the noise issue in detail:
+            Describe the noise issue in detail:<span className="required-asterisk"> *</span>
           </label>
           <textarea
             id="description"
@@ -1678,30 +1678,34 @@ export const WhereScreen = ({
             placeholder="Enter street name and number"
             value={streetAddress}
             onChange={(e) => onStreetAddressChange(e.target.value)}
+            required
           />
-          
+
           <Input
             id="city"
             label="City"
             placeholder="Enter city name"
             value={city}
             onChange={(e) => onCityChange(e.target.value)}
+            required
           />
-          
+
           <Input
             id="state"
             label="State"
             placeholder="WA"
             value={state}
             onChange={(e) => onStateChange(e.target.value)}
+            required
           />
-          
+
           <Input
             id="zipCode"
             label="ZIP Code"
             placeholder="Enter ZIP code"
             value={zipCode}
             onChange={(e) => onZipCodeChange(e.target.value)}
+            required
           />
           
           <RadioGroup
@@ -1786,6 +1790,7 @@ export const WhenScreen = ({
         options={timeOptions}
         selectedValue={timeOption}
         onChange={handleTimeOptionChange}
+        required
       />
 
       {timeOption !== 'NOW' && (
@@ -1796,6 +1801,7 @@ export const WhenScreen = ({
             type="date"
             value={customDate}
             onChange={handleCustomDateChange}
+            required
           />
         </div>
       )}

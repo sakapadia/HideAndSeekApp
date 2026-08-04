@@ -50,19 +50,20 @@ export const Button = ({
 /**
  * Input component for forms
  */
-export const Input = ({ 
-  id, 
-  label, 
-  placeholder, 
-  value, 
-  onChange, 
+export const Input = ({
+  id,
+  label,
+  placeholder,
+  value,
+  onChange,
   type = "text",
   secure = false,
   keyboard = "default",
-  className = ""
+  className = "",
+  required = false
 }) => (
   <div className={`input-group ${className}`}>
-    {label && <label htmlFor={id} className="input-label">{label}</label>}
+    {label && <label htmlFor={id} className="input-label">{label}{required && <span className="required-asterisk"> *</span>}</label>}
     <input
       id={id}
       type={secure ? "password" : type}
@@ -162,16 +163,17 @@ export const SearchBar = ({
 /**
  * Radio group component
  */
-export const RadioGroup = ({ 
-  id, 
-  label, 
-  options, 
-  selectedValue, 
-  onChange, 
-  className = "" 
+export const RadioGroup = ({
+  id,
+  label,
+  options,
+  selectedValue,
+  onChange,
+  className = "",
+  required = false
 }) => (
   <div className={`radio-group ${className}`}>
-    {label && <label className="radio-label">{label}</label>}
+    {label && <label className="radio-label">{label}{required && <span className="required-asterisk"> *</span>}</label>}
     <div className="radio-options">
       {options.map((option, index) => (
         <label key={index} className="radio-option">
