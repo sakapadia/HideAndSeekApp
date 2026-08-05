@@ -175,7 +175,8 @@ body {
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-width: 0;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .map-control-btn:hover {
