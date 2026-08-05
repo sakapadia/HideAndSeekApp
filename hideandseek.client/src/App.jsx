@@ -1449,7 +1449,7 @@ function App() {
           
           {/* Categories Legend for Persistent Map */}
           {mapsLoaded && (
-            <div style={{
+            <div className="persistent-legend" style={{
               position: 'absolute',
               top: '105px',
               right: '20px',
@@ -1458,7 +1458,8 @@ function App() {
               borderRadius: '8px',
               boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
               fontSize: '12px',
-              zIndex: 1000
+              zIndex: 1000,
+              transformOrigin: 'top right'
             }}>
               <div>
                 <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#333' }}>Categories</div>

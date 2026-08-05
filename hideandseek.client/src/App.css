@@ -660,6 +660,10 @@ body {
     height: 12px;
     margin-right: 6px;
   }
+
+  .persistent-legend {
+    scale: clamp(0.55, calc(100vw / 1400px), 1);
+  }
 }
 
 @media (max-width: 480px) {
