@@ -543,10 +543,10 @@ export const UserProfile = ({
 
           {/* Profile Actions */}
           <div className="profile-actions">
-            <Button 
-              text={logoutLoading ? "Logging out..." : "Logout"} 
+            <Button
+              text={logoutLoading ? "Logging out..." : "Logout"}
               onClick={handleLogoutClick}
-              className="btn-outline"
+              className="btn-primary"
               disabled={logoutLoading}
             />
             <Button 
