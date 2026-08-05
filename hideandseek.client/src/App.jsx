@@ -1502,11 +1502,12 @@ function App() {
                     border: '2px solid #5c7cfa',
                     borderRadius: '8px',
                     color: '#5c7cfa',
-                    fontSize: '0.8rem',
+                    fontSize: 'clamp(0.65rem, 1.3vw, 0.8rem)',
                     fontWeight: '600',
-                    padding: '7px 10px',
+                    padding: 'clamp(5px, 1vw, 7px) clamp(6px, 1.2vw, 10px)',
                     cursor: 'pointer',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   📍 Center on Me

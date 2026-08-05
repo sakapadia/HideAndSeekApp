@@ -167,14 +167,15 @@ body {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
+  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px);
+  font-size: clamp(11px, 1.8vw, 14px);
   font-weight: 500;
   color: #333;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .map-control-btn:hover {

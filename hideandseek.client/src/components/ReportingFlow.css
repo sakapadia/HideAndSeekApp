@@ -69,6 +69,8 @@
   background: var(--gradient-primary) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
 /* ===== PROGRESS BAR ===== */
