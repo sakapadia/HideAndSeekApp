@@ -1314,33 +1314,32 @@
 
 .menu-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
   color: white;
 }
 
 .menu-header .heading {
   color: white;
-  margin-bottom: 1rem;
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
 }
 
 .menu-header .text {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 1.1rem;
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
 }
 
 .menu-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  max-width: 800px;
+  grid-template-columns: 1fr;
+  gap: clamp(1rem, 2.5vw, 2rem);
   width: 100%;
-  margin-bottom: 3rem;
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
 }
 
 .menu-card {
   background: white;
   border-radius: 16px;
-  padding: 2rem;
+  padding: clamp(1rem, 2.5vw, 2rem);
   text-align: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -1355,21 +1354,22 @@
 }
 
 .menu-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
 }
 
 .menu-card h3 {
   color: #333;
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 2vw, 1.5rem);
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
 .menu-card p {
   color: #666;
+  font-size: clamp(0.8rem, 1.3vw, 1rem);
   line-height: 1.5;
-  margin-bottom: 1.5rem;
+  margin-bottom: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .menu-footer {
@@ -1386,8 +1386,9 @@
   background: transparent;
   color: white;
   border: 2px solid white;
-  padding: 0.75rem 1.5rem;
+  padding: clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem);
   border-radius: 8px;
+  font-size: clamp(0.8rem, 1.3vw, 1rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -2374,33 +2375,32 @@
 
 .menu-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
   color: white;
 }
 
 .menu-header .heading {
   color: white;
-  margin-bottom: 1rem;
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
 }
 
 .menu-header .text {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 1.1rem;
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
 }
 
 .menu-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  max-width: 800px;
+  grid-template-columns: 1fr;
+  gap: clamp(1rem, 2.5vw, 2rem);
   width: 100%;
-  margin-bottom: 3rem;
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
 }
 
 .menu-card {
   background: white;
   border-radius: 16px;
-  padding: 2rem;
+  padding: clamp(1rem, 2.5vw, 2rem);
   text-align: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -2415,21 +2415,22 @@
 }
 
 .menu-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
 }
 
 .menu-card h3 {
   color: #333;
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 2vw, 1.5rem);
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
 .menu-card p {
   color: #666;
+  font-size: clamp(0.8rem, 1.3vw, 1rem);
   line-height: 1.5;
-  margin-bottom: 1.5rem;
+  margin-bottom: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .menu-footer {
@@ -2446,8 +2447,9 @@
   background: transparent;
   color: white;
   border: 2px solid white;
-  padding: 0.75rem 1.5rem;
+  padding: clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem);
   border-radius: 8px;
+  font-size: clamp(0.8rem, 1.3vw, 1rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
