@@ -220,17 +220,12 @@ export const UserProfile = ({
         <div className="user-profile-modal">
           <div className="profile-header">
             <Heading text="Guest User" level={2} />
-            <Button 
-              text="✕" 
-              onClick={onClose}
-              className="close-btn"
-            />
           </div>
           <div className="profile-content">
             <Text text="Guest users cannot access profile features. Please log in to view your profile, points, and report history." />
             <div className="profile-actions">
-              <Button 
-                text="Close" 
+              <Button
+                text="Close"
                 onClick={onClose}
                 className="btn-primary"
               />
@@ -243,11 +238,6 @@ export const UserProfile = ({
         <div className="user-profile-modal">
           <div className="profile-header">
             <Heading text="Guest User" level={2} />
-            <Button 
-              text="✕" 
-              onClick={onClose}
-              className="close-btn"
-            />
           </div>
           <div className="profile-content">
             <Text text="Guest users cannot access profile features. Please log in to view your profile, points, and report history." />
@@ -285,11 +275,6 @@ export const UserProfile = ({
   const Body = (
     <div className="user-profile-modal">
         <div className="profile-header">
-          <Button
-            text="✕"
-            onClick={onClose}
-            className="close-btn"
-          />
           <div className="profile-header-content">
             <div className="profile-avatar">
               {userProfile?.profilePicture ? (
