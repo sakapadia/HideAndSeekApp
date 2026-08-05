@@ -211,6 +211,8 @@ body {
   padding: 1rem;
   box-shadow: var(--shadow-md);
   width: clamp(140px, 18vw, 220px);
+  scale: clamp(0.55, calc(100vw / 1400px), 1);
+  transform-origin: top left;
 }
 
 .legend-toggle {
