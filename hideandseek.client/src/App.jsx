@@ -454,6 +454,7 @@ function App() {
   const debounceTimeoutRef = React.useRef(null);
   const userLocationMarkerRef = React.useRef(null);
   const jwtTokenRef = React.useRef(userInfo.jwtToken);
+  const activeInfoWindowRef = React.useRef(null);
 
   // Keep JWT ref in sync with state
   React.useEffect(() => { jwtTokenRef.current = userInfo.jwtToken; }, [userInfo.jwtToken]);
@@ -896,6 +897,10 @@ function App() {
 
           // Listen for POI clicks to auto-fill address in reporting flow
           persistentMapInstance.addListener('click', (event) => {
+            if (activeInfoWindowRef.current) {
+              activeInfoWindowRef.current.close();
+              activeInfoWindowRef.current = null;
+            }
             if (event.placeId) {
               event.stop(); // Prevent default info window
               reverseGeocode(event.latLng.lat(), event.latLng.lng());
@@ -1238,8 +1243,11 @@ function App() {
         });
 
         marker.addListener('click', () => {
+          if (activeInfoWindowRef.current) {
+            activeInfoWindowRef.current.close();
+          }
           infoWindow.open({ anchor: marker, map: mapInstance });
-          // Check upvote status when info window opens
+          activeInfoWindowRef.current = infoWindow;
           if (reportId) {
             checkUpvoteStatus(reportId);
             loadComments(reportId);
@@ -1877,6 +1885,10 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       // Listen for map clicks (including POI) to auto-fill address in report form
       mapInstance.addListener('click', (event) => {
+        if (activeInfoWindowRef.current) {
+          activeInfoWindowRef.current.close();
+          activeInfoWindowRef.current = null;
+        }
         if (event.placeId) {
           event.stop(); // Prevent default info window for POIs
         }
@@ -2341,7 +2353,11 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       });
 
       marker.addListener('click', () => {
+        if (activeInfoWindowRef.current) {
+          activeInfoWindowRef.current.close();
+        }
         infoWindow.open({ anchor: marker, map: mapInstance });
+        activeInfoWindowRef.current = infoWindow;
         if (reportId) {
           checkUpvoteStatus(reportId);
           loadComments(reportId);
