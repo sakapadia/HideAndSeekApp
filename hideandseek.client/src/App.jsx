@@ -1895,6 +1895,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         if (activeInfoWindowRef.current) {
           activeInfoWindowRef.current.close();
           activeInfoWindowRef.current = null;
+          return;
         }
         if (event.placeId) {
           event.stop(); // Prevent default info window for POIs
