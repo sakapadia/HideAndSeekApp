@@ -1888,11 +1888,14 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
 
       // Listen for map clicks (including POI) to auto-fill address in report form
       mapInstance.addListener('click', (event) => {
-        if (!markerClickedRef.current && activeInfoWindowRef.current) {
+        if (markerClickedRef.current) {
+          markerClickedRef.current = false;
+          return;
+        }
+        if (activeInfoWindowRef.current) {
           activeInfoWindowRef.current.close();
           activeInfoWindowRef.current = null;
         }
-        markerClickedRef.current = false;
         if (event.placeId) {
           event.stop(); // Prevent default info window for POIs
         }
