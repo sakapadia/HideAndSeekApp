@@ -2357,6 +2357,7 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
       });
 
       marker.addListener('click', () => {
+        markerClickedRef.current = true;
         if (activeInfoWindowRef.current) {
           activeInfoWindowRef.current.close();
         }
