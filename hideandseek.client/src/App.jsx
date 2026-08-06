@@ -2359,11 +2359,13 @@ function MapInterface({ userInfo, mapsLoaded, persistentMap, setError, error, se
         content: buildInfoWindowContent(report, reportId, addressDisplay, estimatedDurationText, upvoteCount, hasUpvoted, commentCount, userInfo.username)
       });
 
-      marker.addListener('click', () => {
-        markerClickedRef.current = true;
-        if (activeInfoWindowRef.current) {
-          activeInfoWindowRef.current.close();
-        }
+      marker.element.addEventListener('click', (e) => {
+        e.stopPropagation();
+        try {
+          if (activeInfoWindowRef.current) {
+            activeInfoWindowRef.current.close();
+          }
+        } catch (_) { /* stale ref */ }
         infoWindow.open({ anchor: marker, map: mapInstance });
         activeInfoWindowRef.current = infoWindow;
         if (reportId) {
