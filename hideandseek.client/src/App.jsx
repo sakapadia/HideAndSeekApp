@@ -898,11 +898,11 @@ function App() {
 
           // Listen for POI clicks to auto-fill address in reporting flow
           persistentMapInstance.addListener('click', (event) => {
-            if (!markerClickedRef.current && activeInfoWindowRef.current) {
+            if (activeInfoWindowRef.current) {
               activeInfoWindowRef.current.close();
               activeInfoWindowRef.current = null;
+              return;
             }
-            markerClickedRef.current = false;
             if (event.placeId) {
               event.stop(); // Prevent default info window
               reverseGeocode(event.latLng.lat(), event.latLng.lng());
@@ -1244,11 +1244,13 @@ function App() {
           content: buildInfoWindowContent(report, reportId, addressDisplay, getEstimatedDurationText(report), upvoteCount, hasUpvoted, commentCount, userInfo.username)
         });
 
-        marker.addListener('click', () => {
-          markerClickedRef.current = true;
-          if (activeInfoWindowRef.current) {
-            activeInfoWindowRef.current.close();
-          }
+        marker.element.addEventListener('click', (e) => {
+          e.stopPropagation();
+          try {
+            if (activeInfoWindowRef.current) {
+              activeInfoWindowRef.current.close();
+            }
+          } catch (_) { /* stale ref */ }
           infoWindow.open({ anchor: marker, map: mapInstance });
           activeInfoWindowRef.current = infoWindow;
           if (reportId) {
